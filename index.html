@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>تسجيل الدخول | مختبر الإلكترونيات والحاسوب — SG</title>
+<meta name="description" content="مختبر الإلكترونيات والحاسوب — صالح غره. تسجيل الدخول للطلاب والمعلم.">
+<meta name="theme-color" content="#070a10">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website">
+<meta property="og:title" content="مختبر الإلكترونيات والحاسوب — صالح غره">
+<meta property="og:description" content="Electronics · Arduino · ESP32 · Programming">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="og-image.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#070a10;--bg-soft:#0b0f18;--surface:#0f1523;--surface-2:#141c2e;--cyan:#3ad6ff;--green:#39e6a0;--amber:#ffb545;--red:#ff6b6b;--text:#eaf2fb;--muted:#8fa0ba;--line:rgba(143,160,186,.18)}
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Tajawal',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px;min-height:100vh;min-height:100dvh;position:relative;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(58,214,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(58,214,255,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);pointer-events:none}
+.glow{position:fixed;width:520px;height:520px;border-radius:50%;filter:blur(10px);pointer-events:none}
+.g1{top:-220px;right:-160px;background:radial-gradient(circle,rgba(58,214,255,.16),transparent 65%)}
+.g2{bottom:-240px;left:-180px;background:radial-gradient(circle,rgba(57,230,160,.12),transparent 65%)}
+.card{position:relative;width:100%;max-width:420px;background:linear-gradient(180deg,var(--surface),var(--bg-soft));border:1px solid var(--line);border-radius:22px;padding:34px 28px 26px;box-shadow:0 24px 70px rgba(0,0,0,.55),0 0 0 1px rgba(58,214,255,.04) inset}
+.logo{display:block;width:104px;height:104px;margin:0 auto 14px;filter:drop-shadow(0 0 22px rgba(58,214,255,.28))}
+h1{font-size:1.45rem;text-align:center;font-weight:800;line-height:1.35}
+h1 span{background:linear-gradient(90deg,var(--cyan),var(--green));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{text-align:center;color:var(--muted);font-size:.86rem;margin:6px 0 22px;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;direction:ltr}
+label{display:block;font-size:.9rem;color:var(--muted);margin:14px 0 6px}
+.field{position:relative}
+input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px 14px;color:var(--text);font:inherit;font-size:1.05rem;outline:none;transition:border-color .15s,box-shadow .15s;direction:ltr;text-align:left}
+input::placeholder{color:#5b6a82;direction:rtl}
+input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
+.eye{position:absolute;top:50%;left:8px;transform:translateY(-50%);background:none;border:0;color:var(--muted);padding:8px;cursor:pointer;font-size:1.05rem}
+#c{padding-left:44px}
+.btn{width:100%;margin-top:20px;border:0;border-radius:12px;padding:14px;font:inherit;font-size:1.05rem;font-weight:800;color:#04141c;cursor:pointer;background:linear-gradient(135deg,var(--cyan),var(--green));box-shadow:0 8px 24px rgba(58,214,255,.22);transition:transform .12s,filter .12s,opacity .12s}
+.btn:hover{filter:brightness(1.06)}.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.55;cursor:not-allowed;filter:grayscale(.3)}
+.msg{min-height:22px;margin-top:14px;text-align:center;font-size:.92rem;line-height:1.5}
+.msg.err{color:var(--red)}.msg.warn{color:var(--amber)}.msg.ok{color:var(--green)}
+.foot{margin-top:18px;text-align:center;color:#5b6a82;font-size:.78rem}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(4,20,28,.35);border-top-color:#04141c;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-inline-start:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+.boot{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9;transition:opacity .25s}
+.boot img{width:84px;height:84px;animation:p 1.3s ease-in-out infinite}
+@keyframes p{50%{transform:scale(.93);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.boot img,.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="boot" id="boot"><img src="logo.svg" alt=""></div>
+<div class="glow g1"></div><div class="glow g2"></div>
+<main class="card">
+  <img class="logo" src="logo.svg" alt="شعار SG">
+  <h1>مختبر الإلكترونيات<br><span>والحاسوب الرقمي</span></h1>
+  <div class="sub">SG · ELECTRONICS &amp; CS LAB</div>
+  <form id="f" autocomplete="on" novalidate>
+    <label for="u">اسم المستخدم (أو كود المعلم)</label>
+    <input id="u" name="username" type="text" inputmode="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="اكتب هنا" maxlength="80">
+    <label for="c">الكود</label>
+    <div class="field">
+      <input id="c" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="••••••" maxlength="80">
+      <button type="button" class="eye" id="eye" aria-label="إظهار الكود">👁</button>
+    </div>
+    <button class="btn" id="go" type="submit">دخول</button>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  </form>
+  <div class="foot">يُحفظ دخولك على هذا الجهاز حتى تسجّل الخروج</div>
+</main>
+<script>
+(function () {
+  'use strict';
+  var API = null, $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), go = $('go'), lockTimer = null;
+  function say(t, k) { msg.className = 'msg ' + (k || ''); msg.textContent = t || ''; }
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function hideBoot() { var b = $('boot'); b.style.opacity = 0; setTimeout(function () { b.remove(); }, 260); }
+
+  $('eye').onclick = function () { var c = $('c'); c.type = c.type === 'password' ? 'text' : 'password'; };
+
+  function lock(sec) {
+    clearInterval(lockTimer); var end = Date.now() + sec * 1000; go.disabled = true;
+    (function tick() {
+      var left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      if (!left) { clearInterval(lockTimer); go.disabled = false; say('يمكنك المحاولة الآن.', 'ok'); return; }
+      say('محاولات خاطئة كثيرة. انتظر ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + ' ثم حاول من جديد.', 'warn');
+    })();
+    lockTimer = setInterval(function () { var l = Math.max(0, Math.ceil((end - Date.now()) / 1000)); if (!l) { clearInterval(lockTimer); go.disabled = false; say('يمكنك المحاولة الآن.', 'ok'); } else say('محاولات خاطئة كثيرة. انتظر ' + Math.floor(l / 60) + ':' + String(l % 60).padStart(2, '0') + ' ثم حاول من جديد.', 'warn'); }, 1000);
+  }
+
+  function ask(sw, data) {
+    return new Promise(function (res, rej) {
+      var ch = new MessageChannel(), t = setTimeout(function () { rej(new Error('sw-timeout')); }, 8000);
+      ch.port1.onmessage = function (e) { clearTimeout(t); res(e.data); };
+      sw.postMessage(data, [ch.port2]);
+    });
+  }
+  function ready() {
+    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('nosw'));
+    return navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; });
+  }
+  function enter() { location.replace('app.html'); }
+
+  function boot() {
+    var tok = ls('sg_token');
+    if (!tok) return hideBoot();
+    fetch(API + '/me', { headers: { 'x-sg-token': tok } }).then(function (r) {
+      if (r.status === 401) { ls('sg_token', null); ls('sg_role', null); hideBoot(); return; }
+      return r.json().then(function (j) { ls('sg_role', j.role); ls('sg_name', j.name); ready().then(function (reg) { return ask(reg.active, { type: 'login', token: tok }); }).then(enter, enter); });
+    }).catch(function () { /* بدون إنترنت: ادخل بالنسخة المحفوظة */ if (ls('sg_role')) enter(); else hideBoot(); });
+  }
+
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var u = $('u').value.trim(), c = $('c').value.trim();
+    if (!u && !c) return say('أدخل اسم المستخدم والكود.', 'err');
+    go.disabled = true; go.innerHTML = 'جارٍ التحقق<span class="spin"></span>'; say('');
+    fetch(API + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ u: u, c: c }) })
+      .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (x) {
+        if (x.s === 200) {
+          return ready().then(function (reg) { return ask(reg.active, { type: 'login', token: x.j.token }); }).then(function () {
+            ls('sg_token', x.j.token); ls('sg_role', x.j.role); ls('sg_name', x.j.name);
+            say('تم الدخول ✔', 'ok'); enter();
+          }, function () { say('تعذّر تجهيز الموقع على هذا المتصفح. جرّب Chrome أو Safari حديث، وتأكد أنك لا تتصفح بوضع خاص.', 'err'); go.disabled = false; go.textContent = 'دخول'; });
+        }
+        go.textContent = 'دخول';
+        if (x.s === 429) { lock(x.j.retry_after || 120); return; }
+        go.disabled = false; say(x.j.message || 'تعذّر الدخول.', 'err');
+      })
+      .catch(function () { go.disabled = false; go.textContent = 'دخول'; say('لا يوجد اتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.', 'err'); });
+  });
+
+  fetch('config.js').then(function (r) { return r.text(); }).then(function (t) {
+    var m = t.match(/API:\s*'([^']+)'/); API = m && m[1];
+    if (!API) throw 0; boot();
+  }).catch(function () { hideBoot(); say('خطأ في إعدادات الموقع (config.js).', 'err'); });
+})();
+</script>
+</body>
+</html>
