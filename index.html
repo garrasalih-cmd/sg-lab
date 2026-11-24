@@ -76,7 +76,7 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
     <button class="btn" id="go" type="submit">دخول</button>
     <div class="msg" id="msg" role="status" aria-live="polite"></div>
   </form>
-  <div class="foot">يُحفظ دخولك على هذا الجهاز حتى تسجّل الخروج</div>
+  <div class="foot">ينتهي دخولك عند إغلاق المتصفح، وسيُطلب الكود من جديد</div>
 </main>
 <script>
 (function () {
@@ -85,6 +85,9 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
   var msg = $('msg'), go = $('go'), lockTimer = null;
   function say(t, k) { msg.className = 'msg ' + (k || ''); msg.textContent = t || ''; }
   function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  /* علامة الجلسة: تُمسح تلقائياً عند إغلاق التبويب/المتصفح، فيُطلب الكود من جديد */
+  function live(v) { try { if (v === undefined) return sessionStorage.getItem('sg_live') === '1'; sessionStorage.setItem('sg_live', '1'); } catch (e) {} }
+  function clearLogin() { ls('sg_token', null); ls('sg_role', null); ls('sg_name', null); }
   function hideBoot() { var b = $('boot'); b.style.opacity = 0; setTimeout(function () { b.remove(); }, 260); }
 
   $('eye').onclick = function () { var c = $('c'); c.type = c.type === 'password' ? 'text' : 'password'; };
@@ -115,6 +118,15 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
   function boot() {
     var tok = ls('sg_token');
     if (!tok) return hideBoot();
+    /* جلسة متصفح جديدة؟ (لا علامة في هذا التبويب) → اسأل الـ SW إن كان تبويب آخر ما زال مسجّلاً، وإلا اطلب الكود */
+    if (!live()) {
+      return ready().then(function (reg) { return ask(reg.active, { type: 'alive' }); }).then(function (r) {
+        if (r && r.alive) { live(1); check(tok); } else { clearLogin(); hideBoot(); }
+      }, function () { clearLogin(); hideBoot(); });
+    }
+    check(tok);
+  }
+  function check(tok) {
     fetch(API + '/me', { headers: { 'x-sg-token': tok } }).then(function (r) {
       if (r.status === 401) { ls('sg_token', null); ls('sg_role', null); hideBoot(); return; }
       return r.json().then(function (j) { ls('sg_role', j.role); ls('sg_name', j.name); ready().then(function (reg) { return ask(reg.active, { type: 'login', token: tok }); }).then(enter, enter); });
@@ -131,7 +143,7 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
       .then(function (x) {
         if (x.s === 200) {
           return ready().then(function (reg) { return ask(reg.active, { type: 'login', token: x.j.token }); }).then(function () {
-            ls('sg_token', x.j.token); ls('sg_role', x.j.role); ls('sg_name', x.j.name);
+            ls('sg_token', x.j.token); ls('sg_role', x.j.role); ls('sg_name', x.j.name); live(1);
             say('تم الدخول ✔', 'ok'); enter();
           }, function () { say('تعذّر تجهيز الموقع على هذا المتصفح. جرّب Chrome أو Safari حديث، وتأكد أنك لا تتصفح بوضع خاص.', 'err'); go.disabled = false; go.textContent = 'دخول'; });
         }

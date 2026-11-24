@@ -19,6 +19,9 @@ const kvSet = async (k, v) => { const d = await idb(); return new Promise(res =>
 let TOKEN; const token = async () => (TOKEN !== undefined ? TOKEN : (TOKEN = (await kvGet('token')) || ''));
 async function wipe() { TOKEN = ''; await kvSet('token', undefined); const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sg-private')).map(k => caches.delete(k))); }
 
+/* عدد نوافذ الموقع المفتوحة (باستثناء نافذة معيّنة إن مُرّر معرّفها). صفر = المتصفح كان مغلقاً */
+const liveClients = async (exceptId) => (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).filter(c => c.id !== exceptId).length;
+
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
@@ -43,8 +46,10 @@ self.addEventListener('fetch', e => {
     return;
   }
   e.respondWith((async () => {
-    const tok = await token();
     const goLogin = () => (req.mode === 'navigate' ? Response.redirect(SCOPE, 302) : new Response('unauthorized', { status: 401 }));
+    /* الدخول ينتهي بإغلاق المتصفح: إن لم تكن هناك أي نافذة/تبويب مفتوح للموقع فهذه جلسة متصفح جديدة → امسح الرمز واطلب الكود */
+    if (req.mode === 'navigate' && !(await liveClients())) { await wipe(); return goLogin(); }
+    const tok = await token();
     if (!tok) return goLogin();
     const cache = await caches.open(isImg(rel) ? IMG : CACHE), key = new Request(url.origin + url.pathname);   // بدون ?query
     if (isImg(rel)) { const hit = await cache.match(key); if (hit) return hit; }
@@ -67,6 +72,11 @@ self.addEventListener('fetch', e => {
 self.addEventListener('message', e => {
   const d = e.data || {}, port = e.ports && e.ports[0], done = v => port && port.postMessage(v);
   if (d.type === 'login') e.waitUntil((async () => { await wipe(); TOKEN = d.token; await kvSet('token', d.token); done({ ok: true }); })());
+  else if (d.type === 'alive') e.waitUntil((async () => {                           // هل توجد جلسة دخول حيّة في تبويب آخر؟
+    const live = (await liveClients(e.source && e.source.id)) > 0 && !!(await token());
+    if (!live) await wipe();                                                         // جلسة متصفح جديدة: امسح الرمز والنسخ المحفوظة
+    done({ alive: live });
+  })());
   else if (d.type === 'logout') e.waitUntil((async () => { await wipe(); done({ ok: true }); })());
   else if (d.type === 'precache' && Array.isArray(d.urls)) e.waitUntil((async () => {
     const tok = await token(); if (!tok) return;
