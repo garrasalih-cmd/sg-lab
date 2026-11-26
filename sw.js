@@ -34,6 +34,18 @@ async function fromServer(rel, tok) {
   return r;
 }
 
+/* منع وميض الواجهة القديمة: يُحقن في <head> من app.html شاشة داكنة بالشعار تغطي الصفحة حتى يكتمل التحميل
+   (بعد تشغيل طبقات التصميم الجديدة)، ثم تُزال. صمام أمان: تزول تلقائياً بعد 3 ثوانٍ مهما حدث. */
+const GUARD = '<style id="sg-hide">body{visibility:hidden!important}html{background:#070a10}'
+  + 'html::before{content:"";position:fixed;inset:0;z-index:2147483647;background:#070a10 url(logo.svg) center/84px 84px no-repeat}</style>'
+  + '<script>(function(){function s(){var e=document.getElementById("sg-hide");if(e)e.remove()}'
+  + 'addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(s)})});'
+  + 'setTimeout(s,3000)})()</script>';
+async function guardApp(blob) {
+  try { const t = await blob.text(); return /<head[^>]*>/i.test(t) ? new Blob([t.replace(/<head[^>]*>/i, m => m + GUARD)], { type: 'text/html' }) : blob; }
+  catch (_) { return blob; }
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;
@@ -58,7 +70,8 @@ self.addEventListener('fetch', e => {
       if (r.status === 401) { await wipe(); return goLogin(); }
       if (r.status === 403 && req.mode === 'navigate') return Response.redirect(SCOPE + 'app.html', 302);   // طالب يفتح صفحة للمعلم
       if (!r.ok) return new Response(await r.text(), { status: r.status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-      const blob = await r.blob();
+      let blob = await r.blob();
+      if (req.mode === 'navigate' && rel === 'app.html') blob = await guardApp(blob);   // لا تُظهر الواجهة القديمة قبل اكتمال الجديدة
       const out = new Response(blob, { status: 200, headers: { 'Content-Type': mime(rel) } });
       cache.put(key, out.clone());
       return out;
