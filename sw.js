@@ -35,12 +35,15 @@ async function fromServer(rel, tok) {
 }
 
 /* منع وميض الواجهة القديمة: يُحقن في <head> من app.html شاشة داكنة بالشعار تغطي الصفحة حتى يكتمل التحميل
-   (بعد تشغيل طبقات التصميم الجديدة)، ثم تُزال. صمام أمان: تزول تلقائياً بعد 3 ثوانٍ مهما حدث. */
+   (بعد تشغيل طبقات التصميم الجديدة)، ثم تُزال حين تهدأ الصفحة 0.5 ث بعد اكتمال التحميل. صمام أمان: تزول تلقائياً بعد 4 ثوانٍ مهما حدث. */
 const GUARD = '<style id="sg-hide">body{visibility:hidden!important}html{background:#070a10}'
   + 'html::before{content:"";position:fixed;inset:0;z-index:2147483647;background:#070a10 url(logo.svg) center/84px 84px no-repeat}</style>'
-  + '<script>(function(){function s(){var e=document.getElementById("sg-hide");if(e)e.remove()}'
-  + 'addEventListener("load",function(){requestAnimationFrame(function(){requestAnimationFrame(s)})});'
-  + 'setTimeout(s,3000)})()</script>';
+  + '<script>(function(){var d=0,t,l=0,mo;'
+  + 'function s(){if(d)return;d=1;try{mo&&mo.disconnect()}catch(e){}var e=document.getElementById("sg-hide");if(e)e.remove()}'
+  + 'function arm(){clearTimeout(t);t=setTimeout(s,500)}'
+  + 'try{mo=new MutationObserver(function(){if(l)arm()});mo.observe(document.documentElement,{childList:true,subtree:true})}catch(e){}'
+  + 'addEventListener("load",function(){l=1;arm()});'
+  + 'setTimeout(s,4000)})()</script>';
 async function guardApp(blob) {
   try { const t = await blob.text(); return /<head[^>]*>/i.test(t) ? new Blob([t.replace(/<head[^>]*>/i, m => m + GUARD)], { type: 'text/html' }) : blob; }
   catch (_) { return blob; }
