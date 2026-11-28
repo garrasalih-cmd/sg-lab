@@ -49,6 +49,8 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
 .btn[disabled]{opacity:.55;cursor:not-allowed;filter:grayscale(.3)}
 .msg{min-height:22px;margin-top:14px;text-align:center;font-size:.92rem;line-height:1.5}
 .msg.err{color:var(--red)}.msg.warn{color:var(--amber)}.msg.ok{color:var(--green)}
+.alt{display:block;width:100%;margin-top:14px;background:none;border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--text);font:inherit;font-size:.98rem;cursor:pointer}
+.alt:hover{border-color:var(--cyan);color:var(--cyan)}
 .foot{margin-top:18px;text-align:center;color:#5b6a82;font-size:.78rem}
 .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(4,20,28,.35);border-top-color:#04141c;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-inline-start:8px}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -76,6 +78,7 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
     <button class="btn" id="go" type="submit">دخول</button>
     <div class="msg" id="msg" role="status" aria-live="polite"></div>
   </form>
+  <button type="button" class="alt" id="vis">أو تصفّح الموقع كزائر ←</button>
   <div class="foot">ينتهي دخولك عند إغلاق المتصفح، وسيُطلب الكود من جديد</div>
 </main>
 <script>
@@ -115,22 +118,31 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
   }
   function enter() { location.replace('app.html'); }
 
+  /* الموقع مفتوح للجميع: بلا جلسة يدخل الزائر مباشرة (نسخة الطالب بلا حصص المعلم).
+     نموذج الدخول يظهر فقط عند فتح الرابط ?login=1 أو الضغط على «دخول» داخل الموقع. */
+  var wantLogin = /[?&]login\b/.test(location.search) || location.hash === '#login';
+  function visitorEntry() {
+    if (wantLogin) return hideBoot();
+    ready().then(enter, function () { hideBoot(); say('تعذّر فتح الموقع على هذا المتصفح. جرّب Chrome أو Safari حديث، وتأكد أنك لا تتصفح بوضع خاص.', 'err'); });
+  }
+  $('vis').onclick = function () { ready().then(enter, function () { say('تعذّر فتح الموقع على هذا المتصفح.', 'err'); }); };
+
   function boot() {
     var tok = ls('sg_token');
-    if (!tok) return hideBoot();
-    /* جلسة متصفح جديدة؟ (لا علامة في هذا التبويب) → اسأل الـ SW إن كان تبويب آخر ما زال مسجّلاً، وإلا اطلب الكود */
+    if (!tok) return visitorEntry();
+    /* جلسة متصفح جديدة؟ (لا علامة في هذا التبويب) → اسأل الـ SW إن كان تبويب آخر ما زال مسجّلاً، وإلا ادخل كزائر */
     if (!live()) {
       return ready().then(function (reg) { return ask(reg.active, { type: 'alive' }); }).then(function (r) {
-        if (r && r.alive) { live(1); check(tok); } else { clearLogin(); hideBoot(); }
-      }, function () { clearLogin(); hideBoot(); });
+        if (r && r.alive) { live(1); check(tok); } else { clearLogin(); visitorEntry(); }
+      }, function () { clearLogin(); visitorEntry(); });
     }
     check(tok);
   }
   function check(tok) {
     fetch(API + '/me', { headers: { 'x-sg-token': tok } }).then(function (r) {
-      if (r.status === 401) { ls('sg_token', null); ls('sg_role', null); hideBoot(); return; }
+      if (r.status === 401) { ls('sg_token', null); ls('sg_role', null); visitorEntry(); return; }
       return r.json().then(function (j) { ls('sg_role', j.role); ls('sg_name', j.name); ready().then(function (reg) { return ask(reg.active, { type: 'login', token: tok }); }).then(enter, enter); });
-    }).catch(function () { /* بدون إنترنت: ادخل بالنسخة المحفوظة */ if (ls('sg_role')) enter(); else hideBoot(); });
+    }).catch(function () { /* بدون إنترنت: ادخل بالنسخة المحفوظة */ if (ls('sg_role')) enter(); else visitorEntry(); });
   }
 
   $('f').addEventListener('submit', function (ev) {

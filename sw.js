@@ -4,7 +4,8 @@
      ويُخزَّن للعمل بدون إنترنت. عند الخروج يُمسح كل شيء. */
 importScripts('config.js');
 const API = self.SG_CONFIG.API;
-const CACHE = 'sg-private-v1', IMG = 'sg-private-img';
+const PUB = API.replace(/\/api\/?$/, '/pub');                                    // وضع الزائر: دالة pub (قراءة فقط، بلا جلسة)
+const CACHE = 'sg-private-v1', IMG = 'sg-private-img', VCACHE = 'sg-private-visitor', VIMG = 'sg-private-vimg';
 const SCOPE = new URL(self.registration.scope).pathname;           // مثل /sg-lab/
 const PUBLIC = new Set(['', 'index.html', '404.html', 'sw.js', 'config.js', 'manifest.webmanifest', 'logo.svg', 'logo-mark.svg',
   'favicon.svg', 'favicon-16.png', 'favicon-32.png', 'favicon-48.png', 'apple-touch-icon.png', 'og-image.png']);
@@ -49,6 +50,25 @@ async function guardApp(blob) {
   catch (_) { return blob; }
 }
 
+/* وضع الزائر: بلا رمز جلسة → المحتوى من دالة pub (نسخة الطالب بلا ملفات المعلم) ولا تحويل لصفحة الدخول */
+async function visitor(rel, req, url) {
+  const cache = await caches.open(isImg(rel) ? VIMG : VCACHE), key = new Request(url.origin + url.pathname);
+  if (isImg(rel)) { const hit = await cache.match(key); if (hit) return hit; }
+  try {
+    const r = await fetch(PUB + '/c/' + rel.split('/').map(encodeURIComponent).join('/'), { cache: 'no-store' });
+    if (r.status === 403 && req.mode === 'navigate') return Response.redirect(SCOPE + 'app.html', 302);   // صفحة للمعلم فقط
+    if (!r.ok) return new Response(await r.text(), { status: r.status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    let blob = await r.blob();
+    if (req.mode === 'navigate' && rel === 'app.html') blob = await guardApp(blob);
+    const out = new Response(blob, { status: 200, headers: { 'Content-Type': mime(rel) } });
+    cache.put(key, out.clone());
+    return out;
+  } catch (_) {                                                                      // بدون إنترنت
+    const hit = await cache.match(key); if (hit) return hit;
+    return req.mode === 'navigate' ? new Response('<meta charset=utf-8><body style="background:#070a10;color:#eaf2fb;font:18px sans-serif;text-align:center;padding:3rem" dir=rtl>لا يوجد اتصال، وهذه الصفحة غير محفوظة للعمل بدون إنترنت.</body>', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error();
+  }
+}
+
 self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;
@@ -63,9 +83,9 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const goLogin = () => (req.mode === 'navigate' ? Response.redirect(SCOPE, 302) : new Response('unauthorized', { status: 401 }));
     /* الدخول ينتهي بإغلاق المتصفح: إن لم تكن هناك أي نافذة/تبويب مفتوح للموقع فهذه جلسة متصفح جديدة → امسح الرمز واطلب الكود */
-    if (req.mode === 'navigate' && !(await liveClients())) { await wipe(); return goLogin(); }
+    if (req.mode === 'navigate' && !(await liveClients())) await wipe();
     const tok = await token();
-    if (!tok) return goLogin();
+    if (!tok) return visitor(rel, req, url);                                         // زائر بلا جلسة
     const cache = await caches.open(isImg(rel) ? IMG : CACHE), key = new Request(url.origin + url.pathname);   // بدون ?query
     if (isImg(rel)) { const hit = await cache.match(key); if (hit) return hit; }
     try {
