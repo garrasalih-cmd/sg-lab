@@ -1,0 +1,21 @@
+# إعدادات Netlify (لا يوجد build: الملفات تُنشر كما هي)
+# في Netlify اجعل Base directory = secretary
+[build]
+  publish = "."
+
+# المشاركة من واتساب تفتح /share-target ⇒ نعرض index.html
+[[redirects]]
+  from = "/share-target"
+  to = "/index.html"
+  status = 200
+
+# Service Worker يجب ألّا يُخزَّن قديمًا حتى تصل التحديثات
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

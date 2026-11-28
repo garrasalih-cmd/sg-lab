@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>سكرتيري</title>
+<meta name="description" content="سكرتيرك الشخصي لمهام العمل والبيت والعائلة">
+<meta name="theme-color" content="#0f1419">
+<meta name="color-scheme" content="dark">
+<!-- ملف التثبيت (Manifest): الاسم، الأيقونة، واستقبال المشاركة من التطبيقات -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- خط Cairo من Google Fonts (يُحفظ للأوفلاين بعد أول فتح) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="config.js"></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+<!-- ============ الشريط العلوي ============ -->
+<header class="topbar">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="" width="40" height="40">
+    <div>
+      <h1>سكرتيري</h1>
+      <p id="today-label" class="muted"></p>
+    </div>
+  </div>
+  <button id="settings-btn" class="icon-btn" aria-label="الإعدادات والمزامنة">
+    <span id="sync-dot" class="dot" data-status="local"></span>
+    <span aria-hidden="true">⚙️</span>
+  </button>
+</header>
+
+<main>
+  <!-- ============ الشاشة 1: الرئيسية ============ -->
+  <section data-screen="home">
+    <button id="morning-btn" class="btn-morning">
+      <span>☀️ صباح الخير</span>
+      <small>رتّب لي يومي</small>
+    </button>
+
+    <div class="card">
+      <label for="task-input" class="label">مهمة جديدة</label>
+      <div class="input-row">
+        <input id="task-input" type="text" placeholder="اكتب، أو اضغط 🎤 وتكلّم…" autocomplete="off" enterkeyhint="done" maxlength="500">
+        <button id="mic-btn" class="mic" type="button" aria-label="إملاء صوتي">🎤</button>
+      </div>
+
+      <div class="label">الفئة</div>
+      <div id="cats" class="cats" role="radiogroup" aria-label="الفئة"></div>
+
+      <div class="label">الموعد <span class="muted">(اختياري)</span></div>
+      <div id="due-chips" class="chips" role="radiogroup" aria-label="الموعد">
+        <button type="button" data-due="none">بلا موعد</button>
+        <button type="button" data-due="today">اليوم</button>
+        <button type="button" data-due="tomorrow">غدًا</button>
+        <button type="button" data-due="pick">📅 <span id="pick-label">تاريخ</span></button>
+      </div>
+      <!-- منتقي التاريخ الأصلي في الهاتف (مخفي، يفتحه زر 📅) -->
+      <input id="date-input" type="date" class="visually-hidden" tabindex="-1" aria-hidden="true">
+
+      <div id="time-row" class="time-row" hidden>
+        <label for="time-input">⏰ الساعة</label>
+        <input id="time-input" type="time">
+        <button id="time-clear" type="button" class="link">بدون ساعة</button>
+      </div>
+
+      <button id="add-btn" class="btn-primary" type="button">➕ أضف المهمة</button>
+    </div>
+
+    <div class="list-head">
+      <h2>المهام المعلّقة <span id="count" class="badge"></span></h2>
+      <span id="done-today" class="muted"></span>
+    </div>
+    <ul id="task-list" class="task-list"></ul>
+    <p id="empty" class="empty" hidden>لا مهام بعد 🌿<br>اكتب أول مهمة، أو اضغط 🎤 وتكلّم.</p>
+  </section>
+
+  <!-- ============ الشاشة 2: مهمة وصلت بالمشاركة ============ -->
+  <section data-screen="share" hidden>
+    <h2 class="screen-title">📥 وصلتك مهمة</h2>
+    <p class="muted">من المشاركة. يمكنك تعديل النص إن أردت.</p>
+    <textarea id="share-text" rows="4" maxlength="500"></textarea>
+    <p class="label center">اضغط الفئة لحفظها</p>
+    <div id="share-cats" class="cats big"></div>
+    <button id="share-cancel" class="btn-ghost" type="button">إلغاء</button>
+  </section>
+
+  <!-- ============ الشاشة 3: الإعدادات ============ -->
+  <section data-screen="settings" hidden>
+    <div class="screen-head">
+      <button class="icon-btn" data-back aria-label="رجوع">→</button>
+      <h2 class="screen-title">⚙️ الإعدادات</h2>
+    </div>
+
+    <div class="card">
+      <h3>☁️ الحساب والمزامنة</h3>
+      <div id="account"></div>
+    </div>
+
+    <div class="card">
+      <h3>🎤 لهجة الإملاء الصوتي</h3>
+      <div id="lang-chips" class="chips"></div>
+      <p id="voice-note" class="muted small"></p>
+    </div>
+
+    <div class="card">
+      <h3>📲 التطبيق</h3>
+      <button id="install-btn" class="btn-primary" type="button" hidden>ثبّت سكرتيري على الشاشة الرئيسية</button>
+      <p id="install-note" class="muted small"></p>
+      <button id="export-btn" class="btn-ghost" type="button">💾 حفظ نسخة احتياطية (ملف)</button>
+      <p class="muted small center">سكرتيري · الإصدار 1 (المرحلة 1)</p>
+    </div>
+  </section>
+</main>
+
+<!-- رسائل قصيرة أسفل الشاشة (Toast) -->
+<div id="toast" class="toast" role="status" aria-live="polite" hidden>
+  <span id="toast-msg"></span><button id="toast-action" type="button" hidden></button>
+</div>
+
+</body>
+</html>
