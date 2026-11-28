@@ -5,13 +5,15 @@
 //  • مزامنة ثنائية مع تقويم «سكرتيري»
 // =====================================================================
 import { admin, SB_URL, localParts, getSettings } from './shared.ts';
+import { syncGoogleTasks } from './gtasks.ts';
 
 const CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
 const CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
 export const REDIRECT_URI = `${SB_URL}/functions/v1/sek`;
 export const googleConfigured = () => !!(CLIENT_ID && CLIENT_SECRET);
 
-const SCOPES = 'openid email https://www.googleapis.com/auth/calendar';
+// التقويم (قراءة وكتابة) + Google Tasks (قراءة وكتابة)
+const SCOPES = 'openid email https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks';
 const CAL_NAME = 'سكرتيري';
 const CAT_LABEL: Record<string, string> = { school: '🏫 مدرسة', home: '🏠 بيت', family: '👨‍👩‍👧 عائلة', personal: '👤 شخصي' };
 const CAT_COLOR: Record<string, string> = { school: '9', home: '5', family: '4', personal: '3' }; // ألوان Google
@@ -173,6 +175,16 @@ export async function syncUser(tok: Tok) {
   const { tz } = await getSettings(tok.user_id);
   await pullFromGoogle(tok, tz);   // ① ما تغيّر في التقويم ⇒ المهام
   await pushToGoogle(tok, tz);     // ② ما تغيّر في المهام ⇒ التقويم
+  // ③ Google Tasks (أخطاؤه لا توقف مزامنة التقويم)
+  await syncGoogleTasks(tok, async (method, url, body) => {
+    const r = await fetch(url, {
+      method, headers: { Authorization: 'Bearer ' + await accessToken(tok), 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    // deno-lint-ignore no-explicit-any
+    const data: any = r.status === 204 ? {} : await r.json().catch(() => ({}));
+    return { status: r.status, ok: r.ok, data };
+  });
   await admin.from('google_tokens').update({ last_sync_at: new Date().toISOString() }).eq('user_id', tok.user_id);
 }
 

@@ -80,12 +80,13 @@ async function renderGoogle() {
   if (g.connected) {
     box.innerHTML = `<p class="account-line">✅ مربوط: ${esc(g.email || '')}</p>
       <p class="muted small">المهام المجدولة تظهر في تقويم «سكرتيري» مع تنبيه قبل 10 دقائق. أي تعديل هناك يعود للتطبيق.</p>
+      <p class="small">${g.tasks_ok === false ? '⚠️ Google Tasks: لم تُمنح الصلاحية. اضغط «فصل» ثم اربط من جديد' : g.tasks_ok ? '✅ Google Tasks: متزامن (كل مهمة تضيفها هناك تصل هنا)' : '📝 Google Tasks: ستبدأ المزامنة خلال دقائق'}</p>
       <div class="btn-row"><button class="btn-ghost" id="g-sync">🔄 مزامنة الآن</button><button class="btn-ghost" id="g-off">فصل</button></div>`;
     $('#g-sync').onclick = async () => { toast('🔄 جارٍ مزامنة التقويم…'); const r = await cal.syncCalendarNow(); toast(r.error ? '⚠️ ' + r.error : '✅ تمت المزامنة'); };
     $('#g-off').onclick = async () => { if (confirm('فصل Google Calendar؟ الأحداث الموجودة تبقى في التقويم.')) { await cal.disconnect(); renderGoogle(); } };
     return;
   }
-  box.innerHTML = `<p class="muted small">اربط حسابك مرة واحدة: يقرأ التطبيق حصصك ومواعيدك ليعرف أوقات فراغك، ويكتب مهامك في تقويم خاص اسمه «سكرتيري».</p>
+  box.innerHTML = `<p class="muted small">اربط حسابك مرة واحدة: يقرأ التطبيق حصصك ومواعيدك ليعرف أوقات فراغك، ويكتب مهامك في تقويم خاص اسمه «سكرتيري»، ويسحب مهامك من Google Tasks.</p>
     <button class="btn-primary" id="g-connect">🔗 ربط Google Calendar</button>`;
   $('#g-connect').onclick = async () => {
     const r = await cal.connect();

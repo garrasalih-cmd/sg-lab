@@ -211,6 +211,7 @@ function importanceHelp(t) {
   if (t.postpone_count) bits.push(`أُجّلت ${t.postpone_count} مرات`);
   if (t.focus_min) bits.push(`ركّزتَ عليها ${t.focus_min} دقيقة`);
   if (t.gcal_event_id) bits.push('📅 موجودة في تقويم «سكرتيري»');
+  if (t.gtask_id) bits.push('📝 من Google Tasks (متزامنة)');
   return bits.join(' · ');
 }
 

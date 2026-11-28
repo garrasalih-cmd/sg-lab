@@ -18,7 +18,7 @@ export const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_KEY);
 const COLS = ['id', 'title', 'category', 'due_date', 'due_time', 'importance', 'duration_min', 'status', 'plan_date',
   'postpone_count', 'order_index', 'source', 'completed_at', 'deleted', 'created_at', 'updated_at',
   'sched_start', 'recur', 'parent_id', 'focus_min'];
-const READ_ONLY = ['gcal_event_id'];
+const READ_ONLY = ['gcal_event_id', 'gtask_id'];   // يكتبها الخادم فقط
 
 /* ---------- الحالة المعروضة في الواجهة ----------
    status: local (بدون حساب) | offline | syncing | ok | error */
@@ -131,7 +131,7 @@ export async function syncNow() {
       const { error } = await c.from('tasks').upsert(dirty.map(t => toRow(t, uid)));
       if (error) throw error;
       for (const t of dirty) {
-        if (t.sched_start || t.gcal_event_id) calendarRelevant = true;
+        if (t.sched_start || t.gcal_event_id || t.gtask_id) calendarRelevant = true;   // التقويم أو Google Tasks
         const cur = await getTask(t.id);
         if (cur && cur.updated_at === t.updated_at) { cur.dirty = 0; await putTask(cur); }
       }

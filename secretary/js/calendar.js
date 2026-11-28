@@ -10,11 +10,14 @@ import { todayStr, addDays } from './util.js';
 const cfg = window.SEK_CONFIG || {};
 
 /* ---------- حالة الربط ---------- */
-export const gcal = { known: false, configured: false, connected: false, email: null };
+let lastOpenSync = 0;
+export const gcal = { known: false, configured: false, connected: false, email: null, tasks_ok: null, tasks_error: null };
 
 export async function refreshStatus() {
   const r = await callFn('status');
-  if (!r.error) Object.assign(gcal, { known: true, configured: r.configured, connected: r.connected, email: r.email });
+  if (!r.error) Object.assign(gcal, { known: true, configured: r.configured, connected: r.connected, email: r.email, tasks_ok: r.tasks_ok, tasks_error: r.tasks_error });
+  // عند فتح التطبيق: نسحب جديد Google Tasks والتقويم فورًا (مرة كل 5 دقائق على الأكثر)
+  if (gcal.connected && Date.now() - lastOpenSync > 5 * 60_000) { lastOpenSync = Date.now(); syncCalendarNow(); }
   await kvSet('gcal', { ...gcal });
   window.dispatchEvent(new Event('sek:gcal'));
   return gcal;

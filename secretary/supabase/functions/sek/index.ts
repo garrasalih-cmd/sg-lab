@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
 
     switch (body.action) {
       case 'status':
-        return json({ configured: googleConfigured(), connected: !!tok, email: tok?.email ?? null, last_sync_at: tok?.last_sync_at ?? null });
+        return json({
+          configured: googleConfigured(), connected: !!tok, email: tok?.email ?? null, last_sync_at: tok?.last_sync_at ?? null,
+          tasks_ok: tok?.tasks_ok ?? null, tasks_error: tok?.tasks_error ?? null   // حالة مزامنة Google Tasks
+        });
 
       case 'connect': {
         if (!googleConfigured()) return json({ error: 'google_not_configured' }, 400);
