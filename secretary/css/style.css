@@ -338,3 +338,10 @@ button.body { background: none; padding: 4px 4px; min-height: 52px; }
 .time-row { flex-wrap: wrap; }
 .time-row input[type="date"] { flex: 1 1 150px; min-width: 0; }
 .time-row input[type="time"] { flex: 1 1 110px; min-width: 0; }
+
+/* شارة «Powered by Netlify» (الخطة المجانية) تظهر أسفل الشاشة:
+   نترك لها مساحة تحت شريط التنقل حتى لا تغطي الأزرار */
+:root { --badge-space: 64px; }
+.tabbar { padding-bottom: calc(env(safe-area-inset-bottom) + var(--badge-space)); }
+body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-space)); }
+.toast { bottom: calc(env(safe-area-inset-bottom) + 86px + var(--badge-space)); }

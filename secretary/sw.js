@@ -4,7 +4,7 @@
    • "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا ويجلب الجديدة في الخلفية
    • يستقبل إشعارات Push ويعرضها، ويفتح الشاشة المناسبة عند النقر
    ===================================================================== */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = 'sek-shell-' + VERSION;
 const RUNTIME = 'sek-runtime';
 
