@@ -1,5 +1,5 @@
 /* =====================================================================
-   sync.js — المزامنة مع Supabase
+   sync.js — المزامنة مع Supabase + الإعدادات + استدعاء دالة الخادم
    الفكرة (Offline-first = الهاتف أولًا):
      ① رفع (push): كل مهمة dirty تُرسل للسحابة (upsert = إدراج أو تحديث)
      ② سحب (pull): نطلب ما تغيّر في السحابة منذ آخر مزامنة (synced_at)
@@ -14,9 +14,11 @@ const LIB_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm'
 const cfg = window.SEK_CONFIG || {};
 export const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_KEY);
 
-// الأعمدة التي تُرسل للخادم (dirty خاص بالهاتف فقط ولا يُرسل)
+// الأعمدة التي يرسلها الهاتف (dirty خاص بالهاتف، وأعمدة gcal_* يكتبها الخادم فقط)
 const COLS = ['id', 'title', 'category', 'due_date', 'due_time', 'importance', 'duration_min', 'status', 'plan_date',
-  'postpone_count', 'order_index', 'source', 'completed_at', 'deleted', 'created_at', 'updated_at'];
+  'postpone_count', 'order_index', 'source', 'completed_at', 'deleted', 'created_at', 'updated_at',
+  'sched_start', 'recur', 'parent_id', 'focus_min'];
+const READ_ONLY = ['gcal_event_id'];
 
 /* ---------- الحالة المعروضة في الواجهة ----------
    status: local (بدون حساب) | offline | syncing | ok | error */
@@ -25,14 +27,13 @@ const notify = () => window.dispatchEvent(new Event('sek:sync'));
 const setStatus = (status, error = null) => { state.status = status; state.error = error; notify(); };
 
 let client = null;
-async function sb() {
+export async function sb() {
   if (!configured) return null;
   if (client) return client;
   const { createClient } = await import(LIB_URL);
   client = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
-  // عند تسجيل الدخول/الخروج نحدّث الحالة
   client.auth.onAuthStateChange((event, session) => {
     state.user = session?.user || null;
     if (!state.user) setStatus('local'); else notify();
@@ -46,22 +47,67 @@ const toRow = (t, uid) => {
   const row = { user_id: uid };
   for (const c of COLS) row[c] = t[c] ?? null;
   row.postpone_count = t.postpone_count || 0;
+  row.focus_min = t.focus_min || 0;
   row.deleted = !!t.deleted;
   return row;
 };
 const iso = v => (v ? new Date(v).toISOString() : null);
 const fromRow = r => {
   const t = {};
-  for (const c of COLS) t[c] = r[c];
+  for (const c of [...COLS, ...READ_ONLY]) t[c] = r[c] ?? null;
   t.due_time = r.due_time ? r.due_time.slice(0, 5) : null;  // الخادم يعيد 14:00:00
-  t.created_at = iso(r.created_at);
-  t.updated_at = iso(r.updated_at);
-  t.completed_at = iso(r.completed_at);
+  for (const c of ['created_at', 'updated_at', 'completed_at', 'sched_start']) t[c] = iso(r[c]);
+  t.postpone_count = r.postpone_count || 0;
+  t.focus_min = r.focus_min || 0;
   t.dirty = 0;
   return t;
 };
 
-/* ---------- المزامنة الكاملة ---------- */
+/* =====================================================================
+   الإعدادات (صف واحد لكل مستخدم في جدول settings)
+   ===================================================================== */
+export const DEFAULT_SETTINGS = {
+  name: 'صالح', tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem',
+  day_start: '07:30', day_end: '22:00', morning_time: '06:30', evening_time: '20:30',
+  push_morning: true, push_evening: true, push_reminders: true
+};
+let settingsCache = null;
+export async function getSettings() {
+  if (!settingsCache) settingsCache = { ...DEFAULT_SETTINGS, ...((await kvGet('settings')) || {}) };
+  return settingsCache;
+}
+export async function saveSettings(patch) {
+  settingsCache = { ...(await getSettings()), ...patch, updated_at: new Date().toISOString() };
+  await kvSet('settings', settingsCache);
+  await kvSet('settings_dirty', 1);
+  window.dispatchEvent(new Event('sek:settings'));
+  schedule();
+}
+const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders'];
+async function syncSettings(c, uid) {
+  if (await kvGet('settings_dirty')) {
+    const s = await getSettings();
+    const row = { user_id: uid, updated_at: s.updated_at || new Date().toISOString() };
+    for (const k of SETTING_COLS) row[k] = s[k];
+    const { error } = await c.from('settings').upsert(row);
+    if (error) throw error;
+    await kvDel('settings_dirty');
+  } else {
+    const { data } = await c.from('settings').select('*').eq('user_id', uid).maybeSingle();
+    if (data) {
+      const s = { ...(await getSettings()) };
+      for (const k of SETTING_COLS) if (data[k] != null) s[k] = typeof data[k] === 'string' && /^\d\d:\d\d:\d\d$/.test(data[k]) ? data[k].slice(0, 5) : data[k];
+      settingsCache = s; await kvSet('settings', s);
+      window.dispatchEvent(new Event('sek:settings'));
+    } else {
+      await kvSet('settings_dirty', 1);   // أول مرة: نرفع الإعدادات الافتراضية
+    }
+  }
+}
+
+/* =====================================================================
+   المزامنة الكاملة
+   ===================================================================== */
 let running = false, again = false, timer = null;
 
 export async function syncNow() {
@@ -80,11 +126,12 @@ export async function syncNow() {
 
     // ① رفع التعديلات المحلية
     const dirty = (await getAllTasks()).filter(t => t.dirty);
+    let calendarRelevant = false;
     if (dirty.length) {
       const { error } = await c.from('tasks').upsert(dirty.map(t => toRow(t, uid)));
       if (error) throw error;
-      // نزيل علامة dirty فقط إذا لم تتغير المهمة أثناء الرفع
       for (const t of dirty) {
+        if (t.sched_start || t.gcal_event_id) calendarRelevant = true;
         const cur = await getTask(t.id);
         if (cur && cur.updated_at === t.updated_at) { cur.dirty = 0; await putTask(cur); }
       }
@@ -101,16 +148,18 @@ export async function syncNow() {
       for (const r of data) {
         const local = await getTask(r.id);
         const remote = fromRow(r);
-        // نقبل نسخة السحابة إلا إذا كان عندنا تعديل محلي أحدث لم يُرفع
         if (!local || !local.dirty || Date.parse(remote.updated_at) >= Date.parse(local.updated_at)) {
           await putTask(remote); pulled++;
         }
-        cursor = r.synced_at;   // نحتفظ بالنص كما هو (دقة الميكروثانية)
+        cursor = r.synced_at;
       }
       if (data.length < 1000) break;
     }
     await kvSet(key, cursor);
-    if (pulled) window.dispatchEvent(new Event('sek:tasks'));
+    await syncSettings(c, uid);
+    if (pulled) window.dispatchEvent(new Event('sek:tasks-remote'));
+    // تغيّرت مهام مجدولة ⇒ نطلب من الخادم تحديث Google Calendar
+    if (calendarRelevant) window.dispatchEvent(new Event('sek:calendar-dirty'));
 
     state.lastSync = new Date();
     setStatus('ok');
@@ -123,10 +172,24 @@ export async function syncNow() {
   }
 }
 
-// تأجيل المزامنة قليلًا لتجميع عدة تعديلات في طلب واحد (debounce)
 export function schedule(delay = 1500) {
   clearTimeout(timer);
   timer = setTimeout(syncNow, delay);
+}
+
+/* ---------- استدعاء دالة الخادم sek (Google Calendar، الإشعارات) ---------- */
+export async function callFn(action, body = {}) {
+  if (!configured || !navigator.onLine) return { error: 'offline' };
+  const c = await sb();
+  const { data: { session } } = await c.auth.getSession();
+  if (!session) return { error: 'signed_out' };
+  const { data, error } = await c.functions.invoke('sek', { body: { action, ...body } });
+  if (error) {
+    let msg = error.message;
+    try { msg = (await error.context.json()).error || msg; } catch { /* */ }
+    return { error: msg };
+  }
+  return data;
 }
 
 /* ---------- الحساب: دخول / حساب جديد / خروج ---------- */
@@ -155,7 +218,6 @@ export async function signUp(email, password) {
       email, password, options: { emailRedirectTo: location.origin + location.pathname }
     });
     if (error) throw error;
-    // إذا كان تأكيد البريد مفعّلًا لا تعود جلسة: يجب فتح الرسالة أولًا
     return { ok: true, needsConfirm: !data.session };
   } catch (e) { return { ok: false, msg: authMsg(e) }; }
 }
@@ -169,7 +231,7 @@ export async function signOut() {
   await clearTasks();
   state.user = null;
   setStatus('local');
-  window.dispatchEvent(new Event('sek:tasks'));
+  window.dispatchEvent(new Event('sek:tasks-remote'));
 }
 
 export async function hasUnsynced() {
@@ -183,7 +245,6 @@ export async function init() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') schedule(300); });
   setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 5 * 60 * 1000);
   if (configured) {
-    // إذا كانت المكتبة غير محفوظة والإنترنت مقطوع: نكمل محليًا بصمت
     try { await sb(); } catch { return setStatus('local'); }
     schedule(0);
   }

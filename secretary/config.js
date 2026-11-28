@@ -8,5 +8,7 @@
    ===================================================================== */
 window.SEK_CONFIG = {
   SUPABASE_URL: 'https://duxhqrohiquqrvnfklez.supabase.co',   // مشروع sekretiri (فرانكفورت)
-  SUPABASE_KEY: 'sb_publishable_nmMuTUyshVpBqYhpiVyxnw_q4zmBLQM' // المفتاح العام (Publishable)
+  SUPABASE_KEY: 'sb_publishable_nmMuTUyshVpBqYhpiVyxnw_q4zmBLQM', // المفتاح العام (Publishable)
+  // المفتاح العام للإشعارات (VAPID public key). المفتاح الخاص محفوظ في الخادم فقط
+  VAPID_PUBLIC: 'BGzeoTPv5l492ZTU7zaIBohVUvPmuDLwEESqHkjgLrA8fv98Jb_TmVMoln4xkfWebF6Q9YmPcYZoTVhA_n-xCZw'
 };

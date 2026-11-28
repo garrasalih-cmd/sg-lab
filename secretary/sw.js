@@ -1,27 +1,25 @@
 /* =====================================================================
    sw.js — Service Worker (عامل الخدمة)
-   برنامج صغير يعمل بين التطبيق والإنترنت:
-   • يحفظ ملفات التطبيق في الهاتف ⇒ يفتح بدون إنترنت.
-   • استراتيجية "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا،
-     ويجلب النسخة الجديدة في الخلفية ⇒ التحديثات تظهر في الفتح التالي.
-   • طلبات Supabase (البيانات) لا تُخزَّن هنا؛ المزامنة تتولاها sync.js.
+   • يحفظ ملفات التطبيق في الهاتف ⇒ يفتح بدون إنترنت
+   • "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا ويجلب الجديدة في الخلفية
+   • يستقبل إشعارات Push ويعرضها، ويفتح الشاشة المناسبة عند النقر
    ===================================================================== */
-const VERSION = 'v1';
-const SHELL = 'sek-shell-' + VERSION;   // ملفات التطبيق
-const RUNTIME = 'sek-runtime';          // الخط ومكتبة Supabase من CDN
+const VERSION = 'v2';
+const SHELL = 'sek-shell-' + VERSION;
+const RUNTIME = 'sek-runtime';
 
 const ASSETS = [
   './', './index.html', './css/style.css', './config.js', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/store.js', './js/sync.js', './js/voice.js', './js/util.js',
+  './js/ui.js', './js/home.js', './js/morning.js', './js/planner.js', './js/plan.js',
+  './js/focus.js', './js/review.js', './js/settings.js', './js/calendar.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 
-// التثبيت: نحفظ ملفات التطبيق مسبقًا (precache)
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
-// التفعيل: نحذف الإصدارات القديمة ونتحكم بالصفحات المفتوحة فورًا
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
@@ -37,19 +35,14 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-
-  // ملفات التطبيق نفسه
   if (url.origin === self.location.origin) {
     // أي فتح لصفحة (حتى /share-target?text=...) ⇒ index.html
-    const key = req.mode === 'navigate' ? INDEX : req;
-    e.respondWith(staleWhileRevalidate(e, key, req.mode === 'navigate' ? INDEX : req));
+    const nav = req.mode === 'navigate';
+    e.respondWith(staleWhileRevalidate(e, nav ? INDEX : req, nav ? INDEX : req));
     return;
   }
-  // الخط والمكتبة: نحفظها مرة واحدة (cache-first) لأن روابطها ثابتة الإصدار
-  if (CDN_HOSTS.includes(url.hostname)) {
-    e.respondWith(cacheFirst(req));
-  }
-  // كل ما عدا ذلك (Supabase مثلًا) يمر مباشرة للإنترنت
+  if (CDN_HOSTS.includes(url.hostname)) e.respondWith(cacheFirst(req));
+  // Supabase وغيره: مباشرة للإنترنت
 });
 
 async function staleWhileRevalidate(event, key, fetchTarget) {
@@ -59,7 +52,7 @@ async function staleWhileRevalidate(event, key, fetchTarget) {
     if (res.ok) cache.put(key, res.clone());
     return res;
   }).catch(() => null);
-  event.waitUntil(network);          // نكمل التحديث حتى بعد الرد
+  event.waitUntil(network);
   return cached || (await network) || new Response('أنت بلا إنترنت ولم يُحفظ هذا الملف بعد', {
     status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
   });
@@ -77,3 +70,30 @@ async function cacheFirst(req) {
     return new Response('', { status: 504 });
   }
 }
+
+/* ---------- إشعارات Push (المرحلة 4) ---------- */
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data.json(); } catch { data = { title: 'سكرتيري', body: e.data?.text() || '' }; }
+  e.waitUntil(self.registration.showNotification(data.title || 'سكرتيري', {
+    body: data.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: data.tag || 'sek',
+    data: { url: data.url || './' },
+    dir: 'rtl', lang: 'ar',
+    vibrate: [120, 60, 120]
+  }));
+});
+
+// النقر على الإشعار: نفتح التطبيق على الشاشة المطلوبة (أو نركّز على النافذة المفتوحة)
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || './', self.registration.scope).href;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const win = wins.find(w => w.url.startsWith(self.registration.scope));
+    if (win) { await win.focus(); win.postMessage({ type: 'open', url }); }
+    else await self.clients.openWindow(url);
+  })());
+});

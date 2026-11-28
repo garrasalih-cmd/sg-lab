@@ -7,11 +7,9 @@
 <meta name="description" content="سكرتيرك الشخصي لمهام العمل والبيت والعائلة">
 <meta name="theme-color" content="#0f1419">
 <meta name="color-scheme" content="dark">
-<!-- ملف التثبيت (Manifest): الاسم، الأيقونة، واستقبال المشاركة من التطبيقات -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<!-- خط Cairo من Google Fonts (يُحفظ للأوفلاين بعد أول فتح) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -25,24 +23,20 @@
 <header class="topbar">
   <div class="brand">
     <img src="icons/icon-192.png" alt="" width="40" height="40">
-    <div>
-      <h1>سكرتيري</h1>
-      <p id="today-label" class="muted"></p>
-    </div>
+    <div><h1>سكرتيري</h1><p id="today-label" class="muted"></p></div>
   </div>
   <button id="settings-btn" class="icon-btn" aria-label="الإعدادات والمزامنة">
-    <span id="sync-dot" class="dot" data-status="local"></span>
-    <span aria-hidden="true">⚙️</span>
+    <span id="sync-dot" class="dot" data-status="local"></span><span aria-hidden="true">⚙️</span>
   </button>
 </header>
 
 <main>
-  <!-- ============ الشاشة 1: الرئيسية ============ -->
+  <!-- ================= الرئيسية ================= -->
   <section data-screen="home">
-    <button id="morning-btn" class="btn-morning">
-      <span>☀️ صباح الخير</span>
-      <small>رتّب لي يومي</small>
-    </button>
+    <div class="day-buttons">
+      <button id="morning-btn" class="btn-morning"><span>☀️ صباح الخير</span><small>رتّب لي يومي</small></button>
+      <button id="evening-btn" class="btn-morning evening" hidden><span>🌙 مراجعة المساء</span><small>كيف كان يومك؟</small></button>
+    </div>
 
     <div class="card">
       <label for="task-input" class="label">مهمة جديدة</label>
@@ -50,10 +44,8 @@
         <input id="task-input" type="text" placeholder="اكتب، أو اضغط 🎤 وتكلّم…" autocomplete="off" enterkeyhint="done" maxlength="500">
         <button id="mic-btn" class="mic" type="button" aria-label="إملاء صوتي">🎤</button>
       </div>
-
       <div class="label">الفئة</div>
       <div id="cats" class="cats" role="radiogroup" aria-label="الفئة"></div>
-
       <div class="label">الموعد <span class="muted">(اختياري)</span></div>
       <div id="due-chips" class="chips" role="radiogroup" aria-label="الموعد">
         <button type="button" data-due="none">بلا موعد</button>
@@ -61,15 +53,16 @@
         <button type="button" data-due="tomorrow">غدًا</button>
         <button type="button" data-due="pick">📅 <span id="pick-label">تاريخ</span></button>
       </div>
-      <!-- منتقي التاريخ الأصلي في الهاتف (مخفي، يفتحه زر 📅) -->
       <input id="date-input" type="date" class="visually-hidden" tabindex="-1" aria-hidden="true">
-
       <div id="time-row" class="time-row" hidden>
         <label for="time-input">⏰ الساعة</label>
         <input id="time-input" type="time">
         <button id="time-clear" type="button" class="link">بدون ساعة</button>
       </div>
-
+      <details id="more-opts" class="more">
+        <summary>🔄 تكرار</summary>
+        <div id="recur-chips" class="chips"></div>
+      </details>
       <button id="add-btn" class="btn-primary" type="button">➕ أضف المهمة</button>
     </div>
 
@@ -81,7 +74,7 @@
     <p id="empty" class="empty" hidden>لا مهام بعد 🌿<br>اكتب أول مهمة، أو اضغط 🎤 وتكلّم.</p>
   </section>
 
-  <!-- ============ الشاشة 2: مهمة وصلت بالمشاركة ============ -->
+  <!-- ================= مهمة من المشاركة ================= -->
   <section data-screen="share" hidden>
     <h2 class="screen-title">📥 وصلتك مهمة</h2>
     <p class="muted">من المشاركة. يمكنك تعديل النص إن أردت.</p>
@@ -91,38 +84,170 @@
     <button id="share-cancel" class="btn-ghost" type="button">إلغاء</button>
   </section>
 
-  <!-- ============ الشاشة 3: الإعدادات ============ -->
+  <!-- ================= وضع الصباح (المرحلة 2) ================= -->
+  <section data-screen="morning" hidden>
+    <div class="screen-head">
+      <button id="m-close" class="icon-btn" aria-label="إغلاق">✕</button>
+      <h2 id="m-hello" class="screen-title">☀️ صباح الخير</h2>
+      <span id="m-progress" class="muted"></span>
+    </div>
+    <div class="progress thin"><div id="m-bar"></div></div>
+    <div id="m-card" class="card m-card"></div>
+    <h3 id="m-question" class="m-question"></h3>
+    <div id="m-answers" class="m-answers"></div>
+    <button id="m-back" class="link center block" hidden>→ رجوع للسؤال السابق</button>
+  </section>
+
+  <!-- ================= خطة اليوم (المرحلة 3) ================= -->
+  <section data-screen="plan" hidden>
+    <div class="screen-head between">
+      <div><h2 class="screen-title">📋 خطة اليوم</h2><p id="p-date" class="muted small"></p></div>
+      <button id="p-speak" class="icon-btn" aria-label="ملخص صوتي">🔊</button>
+    </div>
+    <button id="p-cal-note" class="note" hidden>📅 اربط Google Calendar لأرى حصصك وأرتّب المهام في فراغاتك ←</button>
+    <p id="p-done-count" class="muted"></p>
+    <ul id="p-list" class="task-list plan-list"></ul>
+    <div id="p-empty" class="empty" hidden>
+      لا مهام لليوم بعد 🌿
+      <button id="p-morning" class="btn-primary">☀️ رتّب مهامي الآن</button>
+    </div>
+    <button id="p-commit" class="btn-primary" hidden></button>
+    <div id="p-timeline-wrap" class="card">
+      <h3>🕐 جدول اليوم</h3>
+      <ul id="p-timeline" class="timeline"></ul>
+    </div>
+    <ul id="p-done" class="done-list"></ul>
+  </section>
+
+  <!-- ================= وضع التركيز (المرحلة 5) ================= -->
+  <section data-screen="focus" hidden>
+    <p id="f-mode" class="center f-mode">🎯 تركيز</p>
+    <h2 id="f-task" class="center f-task"></h2>
+    <div class="ring-wrap">
+      <svg viewBox="0 0 200 200" class="ring" aria-hidden="true">
+        <circle cx="100" cy="100" r="90" class="ring-bg"/>
+        <circle cx="100" cy="100" r="90" id="f-ring" class="ring-fg"/>
+      </svg>
+      <div id="f-time" class="f-time" role="timer">25:00</div>
+    </div>
+    <p id="f-sessions" class="center muted"></p>
+    <button id="f-pause" class="btn-ghost">⏸️ إيقاف مؤقت</button>
+    <button id="f-done" class="btn-primary">✓ أنهيت المهمة</button>
+    <button id="f-stop" class="link center block">إنهاء الجلسة</button>
+  </section>
+
+  <!-- ================= مراجعة المساء (المرحلة 5) ================= -->
+  <section data-screen="evening" hidden>
+    <div class="screen-head">
+      <button id="e-close" class="icon-btn" aria-label="إغلاق">✕</button>
+      <h2 class="screen-title">🌙 مراجعة المساء</h2>
+    </div>
+    <div id="e-stat" class="card center"></div>
+    <div id="e-task"></div>
+    <div id="e-actions"></div>
+  </section>
+
+  <!-- ================= المراجعة الأسبوعية (المرحلة 5) ================= -->
+  <section data-screen="weekly" hidden>
+    <h2 class="screen-title">📊 أسبوعي</h2>
+    <div class="card center" id="w-total"></div>
+    <div class="card">
+      <h3>✅ المنجز يوميًا</h3>
+      <div id="w-days" class="bars" role="img" aria-label="عدد المهام المنجزة في كل يوم"></div>
+      <details class="more"><summary>عرض كجدول</summary><table class="tbl"><tbody id="w-days-table"></tbody></table></details>
+    </div>
+    <div class="card">
+      <h3>⏱️ أين ذهب وقتي؟</h3>
+      <p id="w-top" class="strong"></p>
+      <div id="w-cats"></div>
+      <p id="w-cats-note" class="muted small"></p>
+    </div>
+    <div class="card">
+      <h3>⏳ ما تأخّر</h3>
+      <ul id="w-late" class="simple-list"></ul>
+    </div>
+  </section>
+
+  <!-- ================= تفاصيل المهمة ================= -->
+  <section data-screen="details" hidden>
+    <div class="screen-head">
+      <button class="icon-btn" data-back aria-label="رجوع">→</button>
+      <h2 class="screen-title">✏️ تفاصيل المهمة</h2>
+    </div>
+    <div class="card">
+      <input id="d-title" type="text" maxlength="500" aria-label="العنوان">
+      <p id="d-help" class="muted small"></p>
+      <div class="label">الفئة</div><div id="d-cats" class="cats"></div>
+      <div class="label">الأهمية</div><div id="d-imp" class="chips"></div>
+      <div class="label">المدة</div><div id="d-dur" class="chips"></div>
+      <div class="label">الموعد</div>
+      <div class="time-row"><input id="d-date" type="date" aria-label="التاريخ"><input id="d-time" type="time" aria-label="الساعة"><button id="d-date-clear" class="link">مسح</button></div>
+      <div class="label">🔄 التكرار</div><div id="d-recur" class="chips"></div>
+    </div>
+    <div class="card">
+      <h3>🪜 الخطوات</h3>
+      <ul id="d-steps" class="task-list steps"></ul>
+      <div class="input-row" style="margin-top:10px">
+        <input id="d-step-input" type="text" placeholder="خطوة جديدة…" maxlength="500" enterkeyhint="done">
+        <button id="d-step-add" class="mic" aria-label="أضف خطوة">➕</button>
+      </div>
+      <div id="d-split" class="chips" style="margin-top:10px"></div>
+    </div>
+    <button id="d-done" class="btn-primary"></button>
+    <button id="d-delete" class="btn-ghost danger-text">🗑️ حذف المهمة</button>
+  </section>
+
+  <!-- ================= الإعدادات ================= -->
   <section data-screen="settings" hidden>
     <div class="screen-head">
       <button class="icon-btn" data-back aria-label="رجوع">→</button>
       <h2 class="screen-title">⚙️ الإعدادات</h2>
     </div>
-
+    <div class="card"><h3>☁️ الحساب والمزامنة</h3><div id="account"></div></div>
+    <div class="card"><h3>📅 Google Calendar</h3><div id="google"></div></div>
     <div class="card">
-      <h3>☁️ الحساب والمزامنة</h3>
-      <div id="account"></div>
+      <h3>🔔 الإشعارات</h3>
+      <p id="push-state" class="muted small"></p>
+      <button id="push-enable" class="btn-primary" hidden>🔔 فعّل الإشعارات</button>
+      <div id="push-opts" hidden>
+        <label class="switch-row"><span>☀️ إشعار الصباح</span><input type="time" id="morning-time"><input type="checkbox" id="push-morning"></label>
+        <label class="switch-row"><span>🌙 ملخص المساء</span><input type="time" id="evening-time"><input type="checkbox" id="push-evening"></label>
+        <label class="switch-row"><span>⏰ تذكير قبل المهمة<small>إن لم يكن التقويم مربوطًا</small></span><input type="checkbox" id="push-rem"></label>
+        <button id="push-test" class="btn-ghost">📨 جرّب إشعارًا</button>
+      </div>
     </div>
-
     <div class="card">
-      <h3>🎤 لهجة الإملاء الصوتي</h3>
+      <h3>🕐 يومي</h3>
+      <label class="switch-row"><span>اسمي (للتحية)</span><input type="text" id="my-name" maxlength="40"></label>
+      <label class="switch-row"><span>يبدأ يومي</span><input type="time" id="day-start"></label>
+      <label class="switch-row"><span>ينتهي يومي</span><input type="time" id="day-end"></label>
+    </div>
+    <div class="card">
+      <h3>🎤 لهجة الإملاء</h3>
       <div id="lang-chips" class="chips"></div>
-      <p id="voice-note" class="muted small"></p>
+      <h3 style="margin-top:16px">🔊 القراءة الصوتية</h3>
+      <p id="tts-note" class="muted small"></p>
+      <button id="tts-test" class="btn-ghost">🔊 جرّب الصوت</button>
     </div>
-
     <div class="card">
       <h3>📲 التطبيق</h3>
-      <button id="install-btn" class="btn-primary" type="button" hidden>ثبّت سكرتيري على الشاشة الرئيسية</button>
+      <button id="install-btn" class="btn-primary" hidden>ثبّت سكرتيري على الشاشة الرئيسية</button>
       <p id="install-note" class="muted small"></p>
-      <button id="export-btn" class="btn-ghost" type="button">💾 حفظ نسخة احتياطية (ملف)</button>
-      <p class="muted small center">سكرتيري · الإصدار 1 (المرحلة 1)</p>
+      <button id="export-btn" class="btn-ghost">💾 حفظ نسخة احتياطية (ملف)</button>
+      <p class="muted small center">سكرتيري · الإصدار 2</p>
     </div>
   </section>
 </main>
 
-<!-- رسائل قصيرة أسفل الشاشة (Toast) -->
+<!-- ============ شريط التنقل السفلي ============ -->
+<nav id="tabbar" class="tabbar" aria-label="التنقل">
+  <button data-tab="home" aria-current="page"><span>📥</span>المهام</button>
+  <button data-tab="plan"><span>📋</span>اليوم</button>
+  <button data-tab="weekly"><span>📊</span>أسبوعي</button>
+</nav>
+
 <div id="toast" class="toast" role="status" aria-live="polite" hidden>
   <span id="toast-msg"></span><button id="toast-action" type="button" hidden></button>
 </div>
-
 </body>
 </html>
