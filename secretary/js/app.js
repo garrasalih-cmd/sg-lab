@@ -36,14 +36,6 @@ function paintDayButtons() {
 window.addEventListener('sek:tasks', () => { renderList(); sync.schedule(); });   // تعديل محلي ⇒ مزامنة
 window.addEventListener('sek:tasks-remote', renderList);                         // وصل من السحابة
 window.addEventListener('sek:sync', () => { $('#sync-dot').dataset.status = sync.state.status; });
-// بعد «الدخول بحساب Google»: نتيجة ربط التقويم و Google Tasks
-window.addEventListener('sek:google-stored', e => {
-  const r = e.detail || {};
-  if (r.ok) toast('✅ أهلًا بك! رُبط Google Calendar و Google Tasks');
-  else if (r.error === 'google_not_configured') toast('✅ دخلت بنجاح. ربط التقويم ينتظر مفاتيح Google في الخادم');
-  else toast('⚠️ دخلت بنجاح، لكن تعذّر ربط التقويم: ' + (r.error || ''));
-  cal.refreshStatus();
-});
 
 /* ---------- التشغيل ---------- */
 setupHome();

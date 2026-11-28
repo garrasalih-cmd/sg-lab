@@ -38,8 +38,6 @@ export async function sb() {
     state.user = session?.user || null;
     if (!state.user) setStatus('local'); else notify();
     if (event === 'SIGNED_IN') schedule(0);
-    // العودة من صفحة Google قد تصل كـ SIGNED_IN أو INITIAL_SESSION
-    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') storeGoogle(session);
   });
   return client;
 }
@@ -200,8 +198,7 @@ const AUTH_ERR = {
   'Email not confirmed': 'افتح رسالة التأكيد في بريدك أولًا، ثم ادخل هنا',
   'User already registered': 'هذا البريد مسجّل مسبقًا، اضغط «دخول»',
   'Password should be at least 6 characters': 'كلمة المرور 6 أحرف على الأقل',
-  'Failed to fetch': 'تعذّر الاتصال بالخادم، تأكد من الإنترنت',
-  'Unsupported provider: provider is not enabled': 'الدخول بـ Google لم يُفعَّل بعد في Supabase (راجع GOOGLE_SETUP.md، الخطوة 5)'
+  'Failed to fetch': 'تعذّر الاتصال بالخادم، تأكد من الإنترنت'
 };
 const authMsg = e => AUTH_ERR[e?.message] || (navigator.onLine ? (e?.message || 'حدث خطأ') : 'لا يوجد إنترنت');
 
@@ -212,37 +209,6 @@ export async function signIn(email, password) {
     if (error) throw error;
     return { ok: true };
   } catch (e) { return { ok: false, msg: authMsg(e) }; }
-}
-
-// الدخول بحساب Google: نطلب معه صلاحية التقويم و Google Tasks (موافقة واحدة لكل شيء)
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks';
-export async function signInWithGoogle() {
-  try {
-    const c = await sb();
-    const { error } = await c.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: location.origin + location.pathname,   // العودة إلى التطبيق بعد الموافقة
-        scopes: GOOGLE_SCOPES,
-        queryParams: { access_type: 'offline', prompt: 'consent' }   // نريد مفتاحًا دائمًا (refresh token)
-      }
-    });
-    if (error) throw error;
-    return { ok: true };   // المتصفح ينتقل الآن إلى صفحة Google
-  } catch (e) { return { ok: false, msg: authMsg(e) }; }
-}
-
-// بعد العودة من Google: نرسل مفتاح Google للخادم ليربط التقويم و Google Tasks
-function storeGoogle(session) {
-  const rt = session?.provider_refresh_token;
-  if (!rt) return;
-  const key = 'sek:gstored:' + rt.slice(-12);
-  // نرسله مرة واحدة فقط لكل مفتاح (الجلسة المحفوظة تحتفظ به، فلا نعيد إرساله عند كل فتح)
-  try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { /* */ }
-  setTimeout(async () => {
-    const r = await callFn('store_google', { refresh_token: rt });
-    window.dispatchEvent(new CustomEvent('sek:google-stored', { detail: r }));
-  }, 800);
 }
 
 export async function signUp(email, password) {
