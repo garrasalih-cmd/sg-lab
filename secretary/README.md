@@ -1,5 +1,7 @@
 # 📋 سكرتيري: الدليل الكامل (المراحل 1–5)
 
+🌐 **رابط التطبيق:** https://sekretiri.netlify.app
+
 تطبيق PWA عربي يعمل كسكرتير شخصي. يحفظ المهام على الهاتف أولًا (يعمل بلا إنترنت)، ويزامنها مع Supabase وGoogle Calendar عند الاتصال.
 
 ---
@@ -66,6 +68,7 @@
 1. **netlify.com** ← سجّل الدخول بـ GitHub ← **Add new site** ← **Import an existing project** ← **GitHub** ← `sg-lab`
 2. **Branch:** `claude/secretairy-pwa-app-aabrud` · **Base directory:** `secretary` · **Build command:** فارغ
 3. **Deploy**. كل تحديث أرفعه يُنشر تلقائيًا.
+4. ⚠️ Manage ← **Who can see it** ← اجعله **Public**، وإلا لن يعمل التثبيت ولا الإشعارات ولا المشاركة.
 
 ### التثبيت على Galaxy A56
 > ⚠️ استخدم **Chrome**، وليس Samsung Internet.
