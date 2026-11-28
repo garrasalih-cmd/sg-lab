@@ -4,7 +4,7 @@
    • "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا ويجلب الجديدة في الخلفية
    • يستقبل إشعارات Push ويعرضها، ويفتح الشاشة المناسبة عند النقر
    ===================================================================== */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const SHELL = 'sek-shell-' + VERSION;
 const RUNTIME = 'sek-runtime';
 
@@ -36,8 +36,10 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
-    // أي فتح لصفحة (حتى /share-target?text=...) ⇒ index.html
-    const nav = req.mode === 'navigate';
+    // أي فتح لصفحة التطبيق (حتى /share-target?text=...) ⇒ index.html
+    // أما الصفحات المستقلة (مثل privacy.html) فتُعرض كما هي
+    const standalone = /\.html$/.test(url.pathname) && !url.pathname.endsWith('/index.html');
+    const nav = req.mode === 'navigate' && !standalone;
     e.respondWith(staleWhileRevalidate(e, nav ? INDEX : req, nav ? INDEX : req));
     return;
   }
