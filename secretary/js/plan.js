@@ -12,6 +12,7 @@ import { getSettings } from './sync.js';
 import { $, show, onShow, toast, vibrate } from './ui.js';
 import { CATS, IMPORTANCE, todayStr, fromMin, localISO, fmtDuration, esc, longToday } from './util.js';
 import * as focus from './focus.js';
+import { openAdd } from './home.js';
 
 let last = null;   // آخر خطة محسوبة
 
@@ -46,16 +47,20 @@ function draw({ open, done, events, settings, day }) {
   list.innerHTML = plan.ordered.map((t, i) => {
     const slot = plan.slots.get(t.id);
     const c = CATS[t.category] || CATS.personal;
-    const time = slot ? `${fromMin(slot.start)}–${fromMin(slot.end)}${slot.fixed ? ' 📌' : ''}` : '⚠️ لا وقت اليوم';
+    // 📌 وقت ثابت حدّدته أنت، أو ⏱️ بدون وقت مع اقتراح من السكرتير
+    const time = !slot ? '⚠️ لا فراغ له اليوم'
+      : slot.fixed ? `📌 ${fromMin(slot.start)}–${fromMin(slot.end)}`
+      : `⏱️ بدون وقت · مقترح ${fromMin(slot.start)}`;
     const imp = t.importance ? IMPORTANCE[t.importance].icon : '';
     return `<li class="plan-item ${i < 3 ? 'top' : ''} ${i === 3 ? 'first-rest' : ''}" data-id="${t.id}" style="--cat:var(--c-${t.category})">
       <span class="handle" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>
       <button class="act done" data-act="done" aria-label="تمّت">✓</button>
-      <div class="body">
+      <div class="body" data-act="open">
         <div class="title">${i < 3 ? `<span class="star">⭐${i + 1}</span> ` : ''}${esc(t.title)}</div>
         <div class="meta">${imp} ${c.icon} · <span class="${slot ? '' : 'late'}">${time}</span>${t.duration_min ? ' · ' + fmtDuration(t.duration_min) : ''}</div>
       </div>
       <button class="act" data-act="focus" aria-label="وضع التركيز">▶️</button>
+      <button class="act" data-act="del" aria-label="حذف">🗑️</button>
     </li>`;
   }).join('');
 
@@ -84,6 +89,8 @@ function draw({ open, done, events, settings, day }) {
   // ---- المنجزة اليوم ----
   $('#p-done').innerHTML = done.map(t => `<li class="done-item" data-id="${t.id}">✓ ${esc(t.title)}
     <button class="link" data-act="undo">تراجع</button></li>`).join('');
+  $('#p-clear-done').hidden = !done.length;
+  $('#p-clear-done').textContent = `🧹 مسح المنجزة (${done.length})`;
 }
 
 // ما الذي تغيّر بين الخطة والأوقات المحفوظة؟
@@ -119,8 +126,26 @@ $('#p-list').addEventListener('click', async e => {
     toast('أحسنت! ✓', { label: 'تراجع', run: () => store.reopen(id) });
   } else if (b.dataset.act === 'focus') {
     focus.start(id);
+  } else if (b.dataset.act === 'open') {
+    show('details', { arg: id });                 // اضغط المهمة لتعديلها
+  } else if (b.dataset.act === 'del') {
+    b.closest('li').classList.add('leaving');
+    await new Promise(r => setTimeout(r, 200));
+    await store.remove(id);
+    toast('🗑️ حُذفت المهمة', { label: 'تراجع', run: () => store.restore(id) });
   }
 });
+
+/* ---------- ➕ إضافة سريعة لليوم، 📷 من صورة، 🧹 مسح المنجزة ---------- */
+$('#p-add').onclick = () => openAdd({ today: true });
+$('#p-photo').onclick = () => $('#photo-input').click();
+$('#p-clear-done').onclick = async () => {
+  const { done } = await store.planTasks(todayStr());
+  if (!done.length || !confirm(`مسح ${done.length} من المهام المنجزة اليوم من القائمة؟`)) return;
+  for (const t of done) await store.update(t.id, { deleted: true }, { silent: true });
+  window.dispatchEvent(new Event('sek:tasks'));
+  toast('🧹 مُسحت المهام المنجزة');
+};
 $('#p-done').addEventListener('click', e => {
   const b = e.target.closest('[data-act="undo"]'); if (b) store.reopen(b.closest('li').dataset.id);
 });

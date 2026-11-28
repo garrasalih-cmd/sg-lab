@@ -32,12 +32,7 @@
 
 <main>
   <!-- ================= الرئيسية ================= -->
-  <section data-screen="home">
-    <div class="day-buttons">
-      <button id="morning-btn" class="btn-morning"><span>☀️ صباح الخير</span><small>رتّب لي يومي</small></button>
-      <button id="evening-btn" class="btn-morning evening" hidden><span>🌙 مراجعة المساء</span><small>كيف كان يومك؟</small></button>
-    </div>
-
+  <section data-screen="home" hidden>
     <div class="card">
       <label for="task-input" class="label">مهمة جديدة</label>
       <div class="input-row">
@@ -57,15 +52,14 @@
         <button type="button" data-due="pick">📅 <span id="pick-label">تاريخ</span></button>
       </div>
       <input id="date-input" type="date" class="visually-hidden" tabindex="-1" aria-hidden="true">
-      <div id="time-row" class="time-row" hidden>
-        <label for="time-input">⏰ الساعة</label>
-        <input id="time-input" type="time">
-        <button id="time-clear" type="button" class="link">بدون ساعة</button>
+      <div class="label">الوقت</div>
+      <div id="time-chips" class="chips" role="radiogroup" aria-label="الوقت">
+        <button type="button" data-time="none">⏱️ بدون وقت</button>
+        <button type="button" data-time="pick">⏰ <span id="time-label">اختر الساعة</span></button>
       </div>
-      <details id="more-opts" class="more">
-        <summary>🔄 تكرار</summary>
-        <div id="recur-chips" class="chips"></div>
-      </details>
+      <input id="time-input" type="time" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <div class="label">🔄 التكرار</div>
+      <div id="recur-chips" class="chips"></div>
       <button id="add-btn" class="btn-primary" type="button">➕ أضف المهمة</button>
     </div>
 
@@ -102,10 +96,19 @@
   </section>
 
   <!-- ================= خطة اليوم (المرحلة 3) ================= -->
-  <section data-screen="plan" hidden>
+  <section data-screen="plan">
+    <div class="day-buttons">
+      <button id="morning-btn" class="btn-morning"><span>☀️ صباح الخير</span><small>رتّب لي يومي</small></button>
+      <button id="evening-btn" class="btn-morning evening" hidden><span>🌙 مراجعة المساء</span><small>كيف كان يومك؟</small></button>
+    </div>
+
     <div class="screen-head between">
-      <div><h2 class="screen-title">📋 خطة اليوم</h2><p id="p-date" class="muted small"></p></div>
+      <div><h2 class="screen-title">📋 مهام اليوم</h2><p id="p-date" class="muted small"></p></div>
       <button id="p-speak" class="icon-btn" aria-label="ملخص صوتي">🔊</button>
+    </div>
+    <div class="btn-row quick-add">
+      <button id="p-add" class="btn-primary" type="button">➕ مهمة لليوم</button>
+      <button id="p-photo" class="btn-ghost" type="button">📷 من صورة</button>
     </div>
     <p id="p-done-count" class="muted"></p>
     <ul id="p-list" class="task-list plan-list"></ul>
@@ -119,6 +122,7 @@
       <ul id="p-timeline" class="timeline"></ul>
     </div>
     <ul id="p-done" class="done-list"></ul>
+    <button id="p-clear-done" class="btn-ghost" type="button" hidden>🧹 مسح المنجزة</button>
   </section>
 
   <!-- ================= وضع التركيز (المرحلة 5) ================= -->
@@ -263,8 +267,8 @@
 
 <!-- ============ شريط التنقل السفلي ============ -->
 <nav id="tabbar" class="tabbar" aria-label="التنقل">
-  <button data-tab="home" aria-current="page"><span>📥</span>المهام</button>
-  <button data-tab="plan"><span>📋</span>اليوم</button>
+  <button data-tab="plan" aria-current="page"><span>📋</span>اليوم</button>
+  <button data-tab="home"><span>📥</span>كل المهام</button>
   <button data-tab="weekly"><span>📊</span>أسبوعي</button>
 </nav>
 

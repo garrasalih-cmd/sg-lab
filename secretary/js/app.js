@@ -21,8 +21,6 @@ $('#evening-btn').onclick = () => show('evening');
 document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => history.back()));
 document.querySelectorAll('#tabbar [data-tab]').forEach(b => b.addEventListener('click', () => {
   const tab = b.dataset.tab;
-  if (tab === 'home') { if (history.state?.screen && history.state.screen !== 'home') history.back(); return; }
-  history.replaceState({ screen: 'home' }, '');   // التبويبات لا تتراكم في السجل
   show(tab);
 }));
 
@@ -48,7 +46,8 @@ sync.init();
 
 // فتح شاشة حسب الرابط: من الإشعارات، الاختصارات، المشاركة، أو العودة من Google
 const p = new URLSearchParams(location.search);
-const clean = () => history.replaceState({ screen: 'home' }, '', './');
+const clean = () => history.replaceState({ screen: 'plan' }, '', './');
+show('plan', { push: false });            // الصفحة الأولى: مهام اليوم
 if (!handleIncomingShare()) {
   if (p.has('morning')) { clean(); show('morning'); }
   else if (p.has('evening')) { clean(); show('evening'); }

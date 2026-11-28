@@ -361,3 +361,12 @@ body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-spa
 .ph-chip { min-height: 40px; padding: 0 12px; border-radius: 999px; background: var(--surface-2); font-size: .9rem; font-weight: 600; }
 #ph-actions .btn-primary { margin-top: 4px; }
 #ph-raw { margin-top: 8px; font-size: .9rem; }
+
+
+/* ---------- صفحة اليوم: إضافة سريعة + إشارة «بدون وقت» ---------- */
+.quick-add { margin: 0 0 14px; }
+.quick-add .btn-primary, .quick-add .btn-ghost { margin-top: 0; min-height: 52px; }
+.no-time { color: var(--muted); }
+.plan-item .act { flex-basis: 44px; height: 44px; }
+.plan-item .body { cursor: pointer; }
+#p-clear-done { margin-top: 6px; }

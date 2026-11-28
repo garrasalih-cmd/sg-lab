@@ -17,12 +17,14 @@ export const pref = {
    زر الرجوع في Android يعيدك للشاشة السابقة (History API). */
 const onShowFns = {};
 export const onShow = (name, fn) => { onShowFns[name] = fn; };
-export let current = 'home';
-const TABS = ['home', 'plan', 'weekly'];
+export const ROOT = 'plan';          // الصفحة الأولى: مهام اليوم
+export let current = ROOT;
+export const TABS = ['plan', 'home', 'weekly'];
 
 export function show(name, { push = true, arg } = {}) {
   $$('[data-screen]').forEach(s => { s.hidden = s.dataset.screen !== name; });
-  if (push && name !== current) history.pushState({ screen: name, arg }, '');
+  if (push && name !== current && !TABS.includes(name)) history.pushState({ screen: name, arg }, '');
+  if (TABS.includes(name)) history.replaceState({ screen: name }, '');   // التبويبات لا تتراكم في السجل
   current = name;
   // شريط التنقل السفلي يظهر فقط في الشاشات الرئيسية
   $('#tabbar').hidden = !TABS.includes(name);
@@ -30,12 +32,13 @@ export function show(name, { push = true, arg } = {}) {
   window.scrollTo(0, 0);
   onShowFns[name]?.(arg);
 }
-window.addEventListener('popstate', e => show(e.state?.screen || 'home', { push: false, arg: e.state?.arg }));
+window.addEventListener('popstate', e => show(e.state?.screen || ROOT, { push: false, arg: e.state?.arg }));
 export const back = () => history.back();
 // الذهاب للرئيسية مع تنظيف السجل
+// العودة للتبويب الذي جئنا منه (أو لصفحة اليوم)
 export function goHome() {
-  if (history.state?.screen && history.state.screen !== 'home') history.back();
-  else show('home', { push: false });
+  if (history.state?.screen && !TABS.includes(history.state.screen)) history.back();
+  else show(ROOT, { push: false });
 }
 
 /* ---------- Toast: رسالة قصيرة مع زر اختياري (مثل «تراجع») ---------- */

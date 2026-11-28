@@ -12,10 +12,13 @@ const form = {
   cat: pref.get('cat', 'school'),
   catTouched: false,     // هل اخترت الفئة بيدك لهذه المهمة؟
   due: 'none',           // none | today | tomorrow | pick
+  defaultDue: 'none',    // «today» إذا فتحتَ النموذج من صفحة اليوم
   pickDate: null,
+  time: null,            // null = بدون وقت، أو "HH:MM"
   recur: '',
   source: null
 };
+const RECUR_OPTS = [['', 'لا يتكرر'], ['daily', 'يوميًا'], ['weekly', 'أسبوعيًا'], ['monthly', 'شهريًا']];
 const input = $('#task-input');
 
 export function setupHome() {
@@ -40,15 +43,24 @@ export function setupHome() {
     if (!dateInput.value) return;
     form.due = 'pick'; form.pickDate = dateInput.value; paintDue();
   });
-  $('#time-clear').onclick = () => { $('#time-input').value = ''; };
-
-  // التكرار (المرحلة 5)
-  chips($('#recur-chips'), [['', 'لا'], ['daily', 'يوميًا'], ['weekly', 'أسبوعيًا'], ['monthly', 'شهريًا']], '', v => {
-    form.recur = v;
-    if (v && form.due === 'none') { form.due = 'today'; paintDue(); }   // التكرار يحتاج تاريخ بداية
+  // ⏰ الوقت: «بدون وقت» افتراضيًا، أو منتقي الساعة الأصلي في الهاتف
+  const timeInput = $('#time-input');
+  $('#time-chips').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.time === 'pick') return openPicker(timeInput);
+    form.time = null; timeInput.value = ''; paintTime();
+  };
+  timeInput.addEventListener('change', () => {
+    if (!timeInput.value) return;
+    form.time = timeInput.value;
+    if (form.due === 'none') { form.due = 'today'; paintDue(); }   // وقت بلا تاريخ ⇒ اليوم
+    paintTime();
   });
 
-  paintDue();
+  // 🔄 التكرار
+  setupRecur();
+
+  paintDue(); paintTime();
   $('#add-btn').onclick = () => addTask(false);
   setupMic();
   // 📷 مهام من صورة
@@ -65,8 +77,29 @@ export function setupHome() {
 function paintDue() {
   $('#due-chips').querySelectorAll('button').forEach(b => b.setAttribute('aria-checked', b.dataset.due === form.due));
   $('#pick-label').textContent = form.due === 'pick' && form.pickDate ? fmtDue(form.pickDate) : 'تاريخ';
-  $('#time-row').hidden = form.due === 'none';
 }
+function paintTime() {
+  $('#time-chips').querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-checked', b.dataset.time === (form.time ? 'pick' : 'none')));
+  $('#time-label').textContent = form.time ? 'الساعة ' + form.time : 'اختر الساعة';
+}
+function setupRecur() {
+  chips($('#recur-chips'), RECUR_OPTS, form.recur, v => {
+    form.recur = v;
+    if (v && form.due === 'none') { form.due = 'today'; paintDue(); }   // التكرار يحتاج تاريخ بداية
+  });
+}
+
+// فتح نموذج الإضافة من صفحة اليوم: الموعد «اليوم» جاهز
+export function openAdd({ today = false } = {}) {
+  show('home', { arg: { today } });
+  setTimeout(() => input.focus(), 250);
+}
+// عند فتح «كل المهام»: من صفحة اليوم ⇒ الموعد «اليوم» لكل مهمة تضيفها، ومن التبويب ⇒ بلا موعد
+onShow('home', arg => {
+  form.defaultDue = arg?.today ? 'today' : 'none';
+  if (!input.value.trim()) { form.due = form.defaultDue; paintDue(); }
+});
 
 async function addTask(keepFocus) {
   const title = input.value.trim();
@@ -75,21 +108,18 @@ async function addTask(keepFocus) {
     return toast('اكتب المهمة أو اضغط 🎤 وقلها');
   }
   const due_date = { none: null, today: todayStr(), tomorrow: addDays(todayStr(), 1), pick: form.pickDate }[form.due];
-  const due_time = due_date ? ($('#time-input').value || null) : null;
+  const due_time = due_date ? form.time : null;
   const cat = form.cat, source = form.source || 'manual', recur = form.recur || null;
 
   // تهيئة النموذج للمهمة التالية (قبل الحفظ، حتى لا نمسح ما تكتبه بعدها مباشرة)
   input.value = ''; form.source = null; form.catTouched = false;
-  form.due = 'none'; form.pickDate = null; $('#time-input').value = ''; paintDue();
-  form.recur = ''; chips($('#recur-chips'), [['', 'لا'], ['daily', 'يوميًا'], ['weekly', 'أسبوعيًا'], ['monthly', 'شهريًا']], '', v => {
-    form.recur = v; if (v && form.due === 'none') { form.due = 'today'; paintDue(); }
-  });
-  $('#more-opts').open = false;
+  form.due = form.defaultDue; form.pickDate = null; form.time = null; $('#time-input').value = ''; paintDue(); paintTime();
+  form.recur = ''; setupRecur();
   form.cat = pref.get('cat', 'school'); selectCat($('#cats'), form.cat);
   if (keepFocus) input.focus(); else input.blur();
 
   await store.add({ title, category: cat, due_date, due_time, source, recur });
-  toast(`✓ أُضيفت إلى ${CATS[cat].icon} ${CATS[cat].label}${recur ? ' 🔄' : ''}`);
+  toast(`✓ أُضيفت إلى ${CATS[cat].icon} ${CATS[cat].label}${due_time ? ' · ⏰ ' + due_time : ''}${recur ? ' 🔄' : ''}`);
 }
 
 /* ---------- الميكروفون ---------- */
@@ -138,7 +168,7 @@ export async function renderList() {
       <button class="act done" data-act="done" aria-label="تمّت">✓</button>
       <button class="body" data-act="open">
         <div class="title">${esc(t.title)}</div>
-        <div class="meta">${c.icon} ${c.label}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.recur ? ' · 🔄' : ''}${steps}${planned}</div>
+        <div class="meta">${c.icon} ${c.label}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.due_time ? '' : ' · <span class="no-time">⏱️ بدون وقت</span>'}${t.recur ? ' · 🔄 ' + RECUR[t.recur] : ''}${steps}${planned}</div>
       </button>
       <button class="act" data-act="del" aria-label="حذف">🗑️</button>
     </li>`;
@@ -243,7 +273,7 @@ export function handleIncomingShare() {
     toast(`✓ حُفظت في ${CATS[key].label}`);
   });
   $('#share-cancel').onclick = () => back();
-  history.replaceState({ screen: 'home' }, '');
+  history.replaceState({ screen: 'plan' }, '');
   show('share');
   return true;
 }
