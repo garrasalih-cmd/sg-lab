@@ -1,7 +1,7 @@
 /* =====================================================================
    ui.js — أدوات الواجهة المشتركة: التنقل بين الشاشات، Toast، أزرار الفئات
    ===================================================================== */
-import { CATS, DAY_SHORT, recurLabel, parseDays } from './util.js';
+import { CATS, DAY_SHORT, recurLabel, parseDays, esc } from './util.js';
 
 export const $ = s => document.querySelector(s);
 export const $$ = s => [...document.querySelectorAll(s)];
@@ -196,4 +196,30 @@ export function recurEditor(el, value, onChange) {
     }
   };
   draw();
+}
+
+
+/* =====================================================================
+   💬 نافذة سؤال بأزرار كبيرة (بدل confirm المملّة)
+   options: [[قيمة, نص], …] — الأول هو الزر الرئيسي. تُرجع القيمة المختارة، أو 'cancel'
+   ===================================================================== */
+export function ask(title, body, options) {
+  return new Promise(resolve => {
+    const o = document.createElement('div');
+    o.className = 'modal';
+    o.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true">
+        <h3>${esc(title)}</h3>
+        ${body ? `<div class="modal-body">${body}</div>` : ''}
+        <div class="modal-btns">${options.filter(Boolean).map(([v, l], i) =>
+          `<button type="button" data-v="${v}" class="${i === 0 ? 'btn-primary' : 'btn-ghost'}">${l}</button>`).join('')}</div>
+      </div>`;
+    o.addEventListener('click', e => {
+      const b = e.target.closest('[data-v]');
+      if (!b && e.target !== o) return;     // نقرة داخل النافذة
+      o.remove();
+      resolve(b ? b.dataset.v : 'cancel');
+    });
+    document.body.append(o);
+    vibrate(20);
+  });
 }

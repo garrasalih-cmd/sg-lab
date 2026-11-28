@@ -419,3 +419,33 @@ body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-spa
 .recur-panel { padding: 10px 8px; }
 /* الحقول المخفية (منتقي التاريخ والساعة) لا تأخذ عرضًا ولا تدفع الصفحة */
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; overflow: hidden; inset-inline-start: 0; }
+
+
+/* ---------- 🏫 حصص اليوم ---------- */
+.classes-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+.classes-card h3 { font-size: 1rem; margin-bottom: 8px; }
+.class-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.class-chip { display: flex; flex-direction: column; align-items: center; min-width: 74px; padding: 6px 8px; border-radius: 12px;
+  background: color-mix(in srgb, var(--c-school) 16%, var(--surface-2)); border: 1.5px solid color-mix(in srgb, var(--c-school) 45%, transparent); font-size: .8rem; }
+.class-chip b { font-size: .9rem; }
+.class-chip span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.class-chip.past { opacity: .4; }
+.class-chip.now { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.class-chip em { font-style: normal; font-size: .7rem; color: var(--accent); font-weight: 800; }
+.classes-card .note { margin: 0; }
+.classes-card:has(.note) { padding: 0; border: 0; background: none; }
+
+/* ---------- ⚠️ التداخل ---------- */
+.warn-banner { background: color-mix(in srgb, var(--warn) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent);
+  color: var(--text); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; font-size: .92rem; }
+.conflict { color: var(--warn); font-size: .82rem; font-weight: 700; margin-top: 2px; }
+.plan-item:has(.conflict) { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+
+/* ---------- 💬 نافذة السؤال ---------- */
+.modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; padding: 16px; animation: up .15s ease-out; }
+.modal-box { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 18px 16px calc(env(safe-area-inset-bottom) + 12px); }
+.modal-box h3 { font-size: 1.15rem; margin-bottom: 8px; }
+.modal-body { color: var(--muted); font-size: .95rem; }
+.modal-body ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--text); }
+.modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.modal-btns .btn-primary, .modal-btns .btn-ghost { margin-top: 0; }

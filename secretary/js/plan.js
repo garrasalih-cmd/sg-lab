@@ -6,11 +6,11 @@
    • 🔊 ملخص صوتي بالعربية (Text-to-Speech)
    ===================================================================== */
 import * as store from './store.js';
-import { planDay } from './planner.js';
+import { planDay, findConflicts } from './planner.js';
 import { eventsFor, gcal } from './calendar.js';
 import { getSettings } from './sync.js';
 import { $, show, onShow, toast, vibrate, enableSwipe } from './ui.js';
-import { CATS, IMPORTANCE, todayStr, fromMin, localISO, fmtDuration, esc, longToday, timetableEvents } from './util.js';
+import { CATS, IMPORTANCE, todayStr, fromMin, fmtRange, localISO, fmtDuration, esc, longToday, timetableEvents } from './util.js';
 import * as focus from './focus.js';
 import { openAdd } from './home.js';
 
@@ -41,6 +41,12 @@ async function render(fetchEvents, arg) {
 function draw({ open, done, events, settings, day }) {
   const plan = planDay({ tasks: open, events, settings, day });
   last = { plan, day };
+  drawClasses(events, settings, day);
+  // ⚠️ التداخل: مهام بساعة ثابتة تتقاطع مع حصة أو مع مهمة أخرى
+  const conflicts = findConflicts({ tasks: open, events, day });
+  const cb = $('#p-conflicts');
+  cb.hidden = !conflicts.size;
+  cb.innerHTML = conflicts.size ? `⚠️ <b>${conflicts.size === 1 ? 'مهمة واحدة تتداخل' : conflicts.size === 2 ? 'مهمتان تتداخلان' : conflicts.size + ' مهام تتداخل'}</b> مع حصة أو مع مهمة أخرى. اضغط المهمة لتغيير وقتها.` : '';
   const list = $('#p-list');
   $('#p-empty').hidden = open.length > 0;
   $('#p-done-count').textContent = done.length ? `✅ أنجزتَ ${done.length} من ${done.length + open.length}` : '';
@@ -51,7 +57,7 @@ function draw({ open, done, events, settings, day }) {
     const c = CATS[t.category] || CATS.personal;
     // 📌 وقت ثابت حدّدته أنت، أو ⏱️ بدون وقت مع اقتراح من السكرتير
     const time = !slot ? '⚠️ لا فراغ له اليوم'
-      : slot.fixed ? `📌 ${fromMin(slot.start)}–${fromMin(slot.end)}`
+      : slot.fixed ? `📌 ${fmtRange(slot.start, slot.end)}`
       : `⏱️ بدون وقت · مقترح ${fromMin(slot.start)}`;
     const imp = t.importance ? IMPORTANCE[t.importance].icon : '';
     return `<li class="plan-item ${i < 3 ? 'top' : ''} ${i === 3 ? 'first-rest' : ''}" data-id="${t.id}" style="--cat:var(--c-${t.category})">
@@ -60,6 +66,7 @@ function draw({ open, done, events, settings, day }) {
       <div class="body" data-act="open">
         <div class="title">${i < 3 ? `<span class="star">⭐${i + 1}</span> ` : ''}${esc(t.title)}</div>
         <div class="meta">${imp} ${c.icon} · <span class="${slot ? '' : 'late'}">${time}</span>${t.duration_min ? ' · ' + fmtDuration(t.duration_min) : ''}</div>
+        ${conflicts.has(t.id) ? `<div class="conflict">⚠️ تتداخل مع: ${conflicts.get(t.id).map(esc).join('، ')}</div>` : ''}
       </div>
       <button class="act" data-act="focus" aria-label="وضع التركيز">▶️</button>
       <button class="act" data-act="del" aria-label="حذف">🗑️</button>
@@ -229,3 +236,28 @@ export async function speakSummary() {
 }
 $('#p-speak').onclick = speakSummary;
 $('#p-morning').onclick = () => show('morning');
+
+
+/* ---------- 🏫 بطاقات حصص اليوم: المنتهية باهتة، والحالية مميّزة ---------- */
+function drawClasses(events, settings, day) {
+  const box = $('#p-classes');
+  const classes = events.filter(e => e.icon === '🏫');
+  const hasTimetable = Object.values(settings.timetable?.days || {}).some(d => d.length);
+  if (!classes.length) {
+    box.hidden = hasTimetable;              // يوم بلا حصص ⇒ لا شيء
+    if (!hasTimetable) {
+      box.innerHTML = `<button type="button" class="note" id="p-tt-note">🏫 أدخل جدول حصصك من ⚙️ الإعدادات ليعرف السكرتير أوقات فراغك ←</button>`;
+      $('#p-tt-note').onclick = () => show('settings');
+    }
+    return;
+  }
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), isToday = day === todayStr();
+  const mins = iso => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
+  box.hidden = false;
+  box.innerHTML = `<h3>🏫 حصص اليوم <span class="badge">${classes.length}</span></h3>
+    <div class="class-chips">${classes.map(c => {
+      const s = mins(c.start), e = mins(c.end);
+      const state = !isToday ? '' : nowMin >= e ? 'past' : nowMin >= s ? 'now' : '';
+      return `<div class="class-chip ${state}"><b>${esc(c.title)}</b><span>${fmtRange(s, e)}</span>${state === 'now' ? '<em>الآن</em>' : ''}</div>`;
+    }).join('')}</div>`;
+}

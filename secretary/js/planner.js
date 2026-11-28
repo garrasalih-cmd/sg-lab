@@ -97,3 +97,59 @@ const sameDay = (d, day) => {
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` === day;
 };
+
+/* =====================================================================
+   ⚠️ اكتشاف التداخل في الأوقات
+   نقارن كل مهمة لها ساعة ثابتة مع: الحصص، وأحداث اليوم، والمهام الثابتة الأخرى
+   ===================================================================== */
+// \u2066…\u2069 = عزل اتجاه الأرقام حتى لا تنقلب الفترة داخل النص العربي
+const label = (title, s, e) => `${title} (\u2066${fmt(s)}–${fmt(e)}\u2069)`;
+const fmt = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+// كل الفترات المشغولة في يوم: حصص/أحداث + مهام بساعة ثابتة
+function busyItems({ tasks, events, day, excludeId }) {
+  const items = [];
+  for (const e of events || []) {
+    if (e.allDay) continue;
+    const s = new Date(e.start), en = new Date(e.end);
+    if (!sameDay(s, day)) continue;
+    items.push({ id: null, kind: 'event', title: e.title, s: minOfDate(s), e: sameDay(en, day) ? minOfDate(en) : 24 * 60 });
+  }
+  for (const t of tasks || []) {
+    if (t.id === excludeId || t.deleted || t.status === 'done' || !t.due_time || t.due_date !== day) continue;
+    const s = toMin(t.due_time);
+    items.push({ id: t.id, kind: 'task', title: t.title, s, e: s + (t.duration_min || DEFAULT_DUR) });
+  }
+  return items;
+}
+
+// خريطة: رقم المهمة ⇒ قائمة ما تتداخل معه
+export function findConflicts({ tasks, events, day }) {
+  const items = busyItems({ tasks, events, day });
+  const out = new Map();
+  const add = (id, other) => { if (!id) return; if (!out.has(id)) out.set(id, []); out.get(id).push(label(other.title, other.s, other.e)); };
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const a = items[i], b = items[j];
+      if (a.s < b.e && b.s < a.e) { add(a.id, b); add(b.id, a); }
+    }
+  }
+  return out;
+}
+
+// فحص وقت مقترح قبل الحفظ: ما يتداخل معه + أقرب وقت فارغ بعده يتسع للمدة
+export function checkSlot({ start, dur = DEFAULT_DUR, tasks, events, day, dayEnd = 22 * 60, excludeId }) {
+  const items = busyItems({ tasks, events, day, excludeId });
+  const end = start + dur;
+  const conflicts = items.filter(x => start < x.e && x.s < end).map(x => label(x.title, x.s, x.e));
+  let suggestion = null;
+  if (conflicts.length) {
+    // نجرّب البدء بعد نهاية كل فترة مشغولة (مع 5 دقائق راحة)، ونأخذ أول وقت لا يتداخل
+    const candidates = items.map(x => x.e + GAP).filter(c => c > start).sort((a, b) => a - b);
+    for (const c of candidates) {
+      if (c + dur > dayEnd) break;
+      if (!items.some(x => c < x.e && x.s < c + dur)) { suggestion = c; break; }
+    }
+  }
+  return { conflicts, suggestion };
+}

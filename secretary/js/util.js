@@ -39,6 +39,8 @@ export const localISO = (date, time) => { const d = parse(date); const [h, m] = 
 // دقائق منذ منتصف الليل ⇔ "HH:MM"
 export const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 export const fromMin = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+// فترة زمنية «من–إلى» معزولة الاتجاه حتى لا تنقلب داخل النص العربي
+export const fmtRange = (s, e) => `\u2066${fromMin(s)}–${fromMin(e)}\u2069`;
 export const minOfDate = d => d.getHours() * 60 + d.getMinutes();
 export const fmtDuration = m => !m ? '' : m < 60 ? `${m} د` : m % 60 ? `${Math.floor(m / 60)} س ${m % 60} د` : `${m / 60} س`;
 

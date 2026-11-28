@@ -4,8 +4,10 @@
 import * as store from './store.js';
 import * as voice from './voice.js';
 import { startFromFile } from './ocr.js';
-import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe, recurEditor } from './ui.js';
-import { CATS, IMPORTANCE, DURATIONS, RECUR, recurLabel, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
+import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe, recurEditor, ask } from './ui.js';
+import { checkSlot } from './planner.js';
+import { getSettings } from './sync.js';
+import { CATS, IMPORTANCE, DURATIONS, RECUR, recurLabel, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc, toMin, fromMin, timetableEvents } from './util.js';
 
 /* ---------- حالة نموذج الإضافة ---------- */
 const form = {
@@ -132,8 +134,15 @@ async function addTask(keepFocus) {
     return toast('اكتب المهمة أو اضغط 🎤 وقلها');
   }
   const due_date = { none: null, today: todayStr(), tomorrow: addDays(todayStr(), 1), pick: form.pickDate }[form.due];
-  const due_time = due_date ? form.time : null;
+  let due_time = due_date ? form.time : null;
   const cat = form.cat, source = form.source || 'manual', recur = form.recur || null;
+
+  // ⚠️ هل يتداخل الوقت مع حصة أو مهمة أخرى؟
+  if (due_date && due_time) {
+    const r = await conflictCheck({ date: due_date, time: due_time, dur: form.duration });
+    if (r === 'cancel') return;                 // يعود لتعديل الوقت (النموذج كما هو)
+    if (r) due_time = r;                        // انتقل إلى الوقت الفارغ المقترح
+  }
 
   // تهيئة النموذج للمهمة التالية (قبل الحفظ، حتى لا نمسح ما تكتبه بعدها مباشرة)
   input.value = ''; form.source = null; form.catTouched = false;
@@ -243,7 +252,14 @@ async function renderDetails() {
   const d = $('#d-date'), tm = $('#d-time');
   d.value = t.due_date || ''; tm.value = t.due_time || '';
   d.onchange = () => save({ due_date: d.value || null });
-  tm.onchange = () => save({ due_time: tm.value || null });
+  tm.onchange = async () => {
+    if (!tm.value) return save({ due_time: null });
+    const date = d.value || todayStr();
+    const r = await conflictCheck({ date, time: tm.value, dur: t.duration_min, excludeId: t.id });
+    if (r === 'cancel') { tm.value = t.due_time || ''; return; }
+    if (r) tm.value = r;
+    save({ due_date: date, due_time: tm.value });
+  };
   $('#d-date-clear').onclick = () => { save({ due_date: null, due_time: null, sched_start: null }); d.value = ''; tm.value = ''; };
   $('#d-help').textContent = importanceHelp(t);
 
@@ -306,3 +322,27 @@ export function handleIncomingShare() {
 }
 
 export const focusInput = () => setTimeout(() => input.focus(), 300);
+
+
+/* =====================================================================
+   ⚠️ فحص التداخل: مع الحصص (جدولك) ومع المهام الأخرى ذات الساعة
+   يُرجع: null (لا تداخل أو «أضفها رغم ذلك») · 'cancel' · أو وقتًا جديدًا "HH:MM"
+   ===================================================================== */
+export async function conflictCheck({ date, time, dur, excludeId }) {
+  const settings = await getSettings();
+  const events = timetableEvents(settings.timetable, date);
+  const tasks = await store.all();
+  const { conflicts, suggestion } = checkSlot({
+    start: toMin(time), dur: dur || 30, tasks, events, day: date,
+    dayEnd: toMin(settings.day_end || '22:00'), excludeId
+  });
+  if (!conflicts.length) return null;
+  const v = await ask(`⚠️ الساعة ${time} مشغولة`,
+    `<p>هذا الوقت يتداخل مع:</p><ul>${conflicts.map(c => `<li>${esc(c)}</li>`).join('')}</ul>`,
+    [suggestion != null && ['move', `🪄 انقلها إلى ${fromMin(suggestion)} (أقرب وقت فارغ)`],
+     ['keep', '✅ أبقِها في هذا الوقت'],
+     ['cancel', '✏️ أختار وقتًا آخر']]);
+  if (v === 'move') { toast(`🪄 نُقلت إلى ${fromMin(suggestion)}`); return fromMin(suggestion); }
+  if (v === 'keep') return null;
+  return 'cancel';
+}
