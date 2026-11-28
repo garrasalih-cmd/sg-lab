@@ -402,3 +402,20 @@ body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-spa
 .tt-grid { table-layout: fixed; min-width: 0; border-spacing: 2px; }
 .tt-grid th:first-child, .tt-pn { width: 32px; }
 .tt-day { font-size: .72rem; padding: 0; }
+
+
+/* ---------- 🔄 التكرار المخصص ---------- */
+.recur-panel { margin-top: 10px; padding: 12px; border-radius: 14px; background: var(--bg); border: 1px dashed var(--line); }
+.day-toggles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.day-toggles button { min-height: 48px; border-radius: 10px; background: var(--surface-2); font-size: .78rem; font-weight: 700; border: 2px solid transparent; }
+.day-toggles button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--surface-2)); }
+.stepper { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 10px; }
+.stepper button { width: 52px; height: 52px; border-radius: 50%; background: var(--surface-2); font-size: 1.6rem; font-weight: 800; }
+.stepper b { min-width: 110px; text-align: center; font-size: 1.1rem; }
+.recur-sum { margin-top: 8px; color: var(--accent); font-weight: 700; font-size: .95rem; }
+/* أزرار الأيام السبعة تتقلص لتتسع للشاشة دون تمرير جانبي */
+.day-toggles { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.day-toggles button { padding: 0; min-width: 0; font-size: .7rem; overflow: hidden; white-space: nowrap; }
+.recur-panel { padding: 10px 8px; }
+/* الحقول المخفية (منتقي التاريخ والساعة) لا تأخذ عرضًا ولا تدفع الصفحة */
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; overflow: hidden; inset-inline-start: 0; }

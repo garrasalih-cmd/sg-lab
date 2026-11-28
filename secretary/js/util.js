@@ -134,3 +134,31 @@ export function timetableEvents(timetable, day) {
       start: `${day}T${p.start}:00`, end: `${day}T${p.end}:00`, allDay: false
     }));
 }
+
+/* =====================================================================
+   🔄 التكرار المخصص
+   القيم: daily · weekly · monthly · every:N (كل N أيام) · days:0,2,4 (أيام محددة، 0 = الأحد)
+   ===================================================================== */
+export const weekdayOf = str => { const [y, m, d] = str.split('-').map(Number); return new Date(y, m - 1, d).getDay(); };
+export const parseDays = r => (r || '').startsWith('days:') ? r.slice(5).split(',').map(Number) : [];
+
+// اسم التكرار للعرض: «كل يومين»، «أيام: أحد، ثلاثاء»…
+export function recurLabel(r) {
+  if (!r) return '';
+  if (RECUR[r]) return RECUR[r];
+  if (r.startsWith('every:')) {
+    const n = +r.slice(6);
+    return n === 1 ? 'يوميًا' : n === 2 ? 'كل يومين' : n <= 10 ? `كل ${n} أيام` : `كل ${n} يومًا`;
+  }
+  const days = parseDays(r);
+  if (days.length === 7) return 'يوميًا';
+  return days.length ? 'أيام: ' + days.map(d => DAY_SHORT[d]).join('، ') : '';
+}
+
+// أول تاريخ (من تاريخ معيّن فصاعدًا) يناسب «أيام محددة»
+export function firstMatchingDay(r, from) {
+  const days = parseDays(r);
+  if (!days.length) return from;
+  for (let i = 0; i < 7; i++) { const x = addDays(from, i); if (days.includes(weekdayOf(x))) return x; }
+  return from;
+}

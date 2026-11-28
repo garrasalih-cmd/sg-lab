@@ -6,7 +6,7 @@
      3) يُطلق حدث 'sek:tasks' لتحديث الشاشات وطلب مزامنة
    ===================================================================== */
 import { getAllTasks, getTask, putTask } from './db.js';
-import { todayStr, addDays, addMonths, localISO } from './util.js';
+import { todayStr, addDays, addMonths, localISO, parseDays, weekdayOf, firstMatchingDay } from './util.js';
 
 const nowISO = () => new Date().toISOString();
 const changed = () => window.dispatchEvent(new Event('sek:tasks'));
@@ -100,6 +100,9 @@ export async function add(fields) {
     created_at: fields.created_at || now, updated_at: now,
     dirty: 1
   };
+  // مهمة متكررة: تحتاج تاريخ بداية، و«أيام محددة» تبدأ في أول يوم مناسب
+  if (task.recur && !task.due_date) task.due_date = todayStr();
+  if (task.recur?.startsWith('days:')) task.due_date = firstMatchingDay(task.recur, task.due_date);
   task.sched_start = fixedStart(task.due_date, task.due_time);
   await putTask(task);
   changed();
@@ -162,7 +165,15 @@ export async function restore(id) {
 export function nextDate(t) {
   const t0 = todayStr();
   let d = t.due_date || t0;
-  const step = x => t.recur === 'daily' ? addDays(x, 1) : t.recur === 'weekly' ? addDays(x, 7) : addMonths(x, 1);
+  const r = t.recur || '';
+  // أيام محددة: أول يوم مناسب بعد (الموعد أو اليوم، أيهما أبعد)
+  if (r.startsWith('days:')) {
+    const days = parseDays(r), base = d > t0 ? d : t0;
+    for (let i = 1; i <= 7; i++) { const x = addDays(base, i); if (days.includes(weekdayOf(x))) return x; }
+    return addDays(base, 7);
+  }
+  const n = r.startsWith('every:') ? Math.max(1, +r.slice(6)) : 0;
+  const step = x => n ? addDays(x, n) : r === 'daily' ? addDays(x, 1) : r === 'weekly' ? addDays(x, 7) : addMonths(x, 1);
   do { d = step(d); } while (d <= t0);
   return d;
 }

@@ -1,7 +1,7 @@
 /* =====================================================================
    ui.js — أدوات الواجهة المشتركة: التنقل بين الشاشات، Toast، أزرار الفئات
    ===================================================================== */
-import { CATS } from './util.js';
+import { CATS, DAY_SHORT, recurLabel, parseDays } from './util.js';
 
 export const $ = s => document.querySelector(s);
 export const $$ = s => [...document.querySelectorAll(s)];
@@ -141,4 +141,59 @@ export function enableSwipe(list, { right, left }) {
   list.addEventListener('pointercancel', end);
   // نقرة بعد سحب ⇒ تُلغى
   list.addEventListener('click', e => { if (e.target.closest('li')?.dataset.swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+
+
+/* =====================================================================
+   🔄 محرّر التكرار (بالأزرار فقط)
+   سريع: لا يتكرر · يوميًا · كل يومين · أسبوعيًا · شهريًا · ⚙️ مخصص
+   مخصص: 📅 أيام محددة (أحد…سبت) أو 🔁 كل عدد أيام (− 3 +)
+   ===================================================================== */
+const RECUR_PRESETS = [['', 'لا يتكرر'], ['daily', 'يوميًا'], ['every:2', 'كل يومين'], ['weekly', 'أسبوعيًا'], ['monthly', 'شهريًا'], ['custom', '⚙️ مخصص']];
+const isCustom = v => v.startsWith('days:') || (v.startsWith('every:') && v !== 'every:2');
+
+export function recurEditor(el, value, onChange) {
+  let v = value || '';
+  let mode = v.startsWith('days:') ? 'days' : isCustom(v) ? 'every' : null;   // null = لوحة «مخصص» مغلقة
+  const set = nv => { v = nv; onChange(v); draw(); };
+
+  function draw() {
+    const sel = mode ? 'custom' : v;
+    const days = parseDays(v), n = v.startsWith('every:') ? +v.slice(6) : 3;
+    el.innerHTML = `<div class="chips">${RECUR_PRESETS.map(([k, l]) =>
+        `<button type="button" data-k="${k}" aria-checked="${k === sel}">${l}</button>`).join('')}</div>
+      ${mode ? `<div class="recur-panel">
+        <div class="chips">
+          <button type="button" data-mode="days" aria-checked="${mode === 'days'}">📅 أيام محددة</button>
+          <button type="button" data-mode="every" aria-checked="${mode === 'every'}">🔁 كل عدد أيام</button>
+        </div>
+        ${mode === 'days'
+          ? `<div class="day-toggles">${DAY_SHORT.map((d, i) => `<button type="button" data-day="${i}" aria-pressed="${days.includes(i)}">${d}</button>`).join('')}</div>`
+          : `<div class="stepper"><button type="button" data-step="-1" aria-label="أقل">−</button>
+               <b>كل ${n} ${n <= 10 ? 'أيام' : 'يومًا'}</b>
+               <button type="button" data-step="1" aria-label="أكثر">+</button></div>`}
+      </div>` : ''}
+      ${v ? `<p class="recur-sum">🔄 ${recurLabel(v)}</p>` : ''}`;
+  }
+
+  el.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const today = new Date().getDay();
+    if (b.dataset.k !== undefined) {
+      if (b.dataset.k === 'custom') { mode = mode || 'days'; if (!isCustom(v)) set('days:' + today); else draw(); }
+      else { mode = null; set(b.dataset.k); }
+    } else if (b.dataset.mode) {
+      mode = b.dataset.mode;
+      set(mode === 'days' ? (v.startsWith('days:') ? v : 'days:' + today) : (v.startsWith('every:') && v !== 'every:2' ? v : 'every:3'));
+    } else if (b.dataset.day) {
+      const d = +b.dataset.day, days = parseDays(v);
+      const i = days.indexOf(d);
+      if (i >= 0) { if (days.length === 1) return; days.splice(i, 1); } else days.push(d);   // يبقى يوم واحد على الأقل
+      set('days:' + days.sort((a, c) => a - c).join(','));
+    } else if (b.dataset.step) {
+      const n = Math.min(90, Math.max(2, (v.startsWith('every:') ? +v.slice(6) : 3) + +b.dataset.step));
+      set('every:' + n);
+    }
+  };
+  draw();
 }

@@ -4,8 +4,8 @@
 import * as store from './store.js';
 import * as voice from './voice.js';
 import { startFromFile } from './ocr.js';
-import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe } from './ui.js';
-import { CATS, IMPORTANCE, DURATIONS, RECUR, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
+import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe, recurEditor } from './ui.js';
+import { CATS, IMPORTANCE, DURATIONS, RECUR, recurLabel, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
 
 /* ---------- حالة نموذج الإضافة ---------- */
 const form = {
@@ -20,7 +20,6 @@ const form = {
   recur: '',
   source: null
 };
-const RECUR_OPTS = [['', 'لا يتكرر'], ['daily', 'يوميًا'], ['weekly', 'أسبوعيًا'], ['monthly', 'شهريًا']];
 const input = $('#task-input');
 
 export function setupHome() {
@@ -74,7 +73,7 @@ export function setupHome() {
     form.recur = t.recur || ''; setupRecur();
     if (t.recur && form.due === 'none') { form.due = 'today'; paintDue(); }
     input.focus();
-    toast(`${t.icon} ${t.title}: ${CATS[t.category].label}${t.duration_min ? ' · ' + t.duration_min + ' د' : ''}${t.recur ? ' · 🔄 ' + RECUR[t.recur] : ''}. أكمل الاسم إن أردت`);
+    toast(`${t.icon} ${t.title}: ${CATS[t.category].label}${t.duration_min ? ' · ' + t.duration_min + ' د' : ''}${t.recur ? ' · 🔄 ' + recurLabel(t.recur) : ''}. أكمل الاسم إن أردت`);
   };
   // 👆 السحب: لليمين ✓ إنهاء، لليسار 🗑️ حذف
   enableSwipe($('#task-list'), {
@@ -109,7 +108,7 @@ function setupRemind() {
   chips($('#remind-chips'), REMIND_OPTS, form.remind, v => { form.remind = +v; });
 }
 function setupRecur() {
-  chips($('#recur-chips'), RECUR_OPTS, form.recur, v => {
+  recurEditor($('#recur-edit'), form.recur, v => {
     form.recur = v;
     if (v && form.due === 'none') { form.due = 'today'; paintDue(); }   // التكرار يحتاج تاريخ بداية
   });
@@ -195,7 +194,7 @@ export async function renderList() {
       <button class="act done" data-act="done" aria-label="تمّت">✓</button>
       <button class="body" data-act="open">
         <div class="title">${esc(t.title)}</div>
-        <div class="meta">${c.icon} ${c.label}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.due_time ? '' : ' · <span class="no-time">⏱️ بدون وقت</span>'}${t.recur ? ' · 🔄 ' + RECUR[t.recur] : ''}${steps}${planned}</div>
+        <div class="meta">${c.icon} ${c.label}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.due_time ? '' : ' · <span class="no-time">⏱️ بدون وقت</span>'}${t.recur ? ' · 🔄 ' + recurLabel(t.recur) : ''}${steps}${planned}</div>
       </button>
       <button class="act" data-act="del" aria-label="حذف">🗑️</button>
     </li>`;
@@ -238,7 +237,7 @@ async function renderDetails() {
   catButtons($('#d-cats'), t.category, v => save({ category: v }));
   chips($('#d-imp'), [['', '—'], ...Object.entries(IMPORTANCE).map(([k, v]) => [k, `${v.icon} ${k}`])], t.importance ?? '', v => save({ importance: v ? +v : null }));
   chips($('#d-dur'), [['', '—'], ...DURATIONS], t.duration_min ?? '', v => save({ duration_min: v ? +v : null }));
-  chips($('#d-recur'), [['', 'لا'], ...Object.entries(RECUR)], t.recur ?? '', v => save({ recur: v || null, ...(v && !t.due_date ? { due_date: todayStr() } : {}) }));
+  recurEditor($('#d-recur'), t.recur ?? '', v => save({ recur: v || null, ...(v && !t.due_date ? { due_date: todayStr() } : {}) }));
   chips($('#d-remind'), REMIND_OPTS, t.remind_min ?? DEFAULT_REMIND, v => save({ remind_min: +v }));
 
   const d = $('#d-date'), tm = $('#d-time');
