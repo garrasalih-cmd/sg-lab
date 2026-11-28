@@ -134,7 +134,8 @@ const AUTH_ERR = {
   'Invalid login credentials': 'البريد أو كلمة المرور غير صحيحة',
   'Email not confirmed': 'افتح رسالة التأكيد في بريدك أولًا، ثم ادخل هنا',
   'User already registered': 'هذا البريد مسجّل مسبقًا، اضغط «دخول»',
-  'Password should be at least 6 characters': 'كلمة المرور 6 أحرف على الأقل'
+  'Password should be at least 6 characters': 'كلمة المرور 6 أحرف على الأقل',
+  'Failed to fetch': 'تعذّر الاتصال بالخادم، تأكد من الإنترنت'
 };
 const authMsg = e => AUTH_ERR[e?.message] || (navigator.onLine ? (e?.message || 'حدث خطأ') : 'لا يوجد إنترنت');
 

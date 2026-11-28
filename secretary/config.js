@@ -7,6 +7,6 @@
    إذا تركتها فارغة: يعمل التطبيق على الهاتف فقط بدون مزامنة.
    ===================================================================== */
 window.SEK_CONFIG = {
-  SUPABASE_URL: '',   // مثال: 'https://abcdxyz.supabase.co'
-  SUPABASE_KEY: ''    // مثال: 'sb_publishable_...' أو 'eyJhbGciOi...'
+  SUPABASE_URL: 'https://duxhqrohiquqrvnfklez.supabase.co',   // مشروع sekretiri (فرانكفورت)
+  SUPABASE_KEY: 'sb_publishable_nmMuTUyshVpBqYhpiVyxnw_q4zmBLQM' // المفتاح العام (Publishable)
 };
