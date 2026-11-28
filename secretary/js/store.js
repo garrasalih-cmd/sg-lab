@@ -86,6 +86,7 @@ export async function add(fields) {
     due_time: fields.due_date ? (fields.due_time || null) : null,
     importance: fields.importance ?? null,
     duration_min: fields.duration_min ?? null,
+    remind_min: fields.remind_min ?? null,   // التذكير قبل الموعد بالدقائق (null = 15، 0 = بدون)
     status: fields.status || 'inbox',
     plan_date: fields.plan_date || null,
     postpone_count: 0,
@@ -169,7 +170,7 @@ async function spawnNext(t) {
   await add({
     title: t.title, category: t.category, recur: t.recur,
     due_date: nextDate(t), due_time: t.due_time,
-    importance: t.importance, duration_min: t.duration_min, source: 'recur'
+    importance: t.importance, duration_min: t.duration_min, remind_min: t.remind_min, source: 'recur'
   });
 }
 

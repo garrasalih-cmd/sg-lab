@@ -79,17 +79,22 @@ export async function runNotifications(gcalUsers: Set<string>) {
         });
       }
 
-      // ⏰ تذكير قبل المهمة (فقط إن لم يكن Google Calendar مربوطًا، فهو يذكّرك بنفسه)
+      // ⏰ تذكير قبل المهمة: كل مهمة بوقتها الذي اخترته (remind_min دقيقة قبلها، الافتراضي 15، و0 = بدون)
       if (s.push_reminders && !gcalUsers.has(uid)) {
-        const from = now.toISOString(), to = new Date(now.getTime() + 15 * 60000).toISOString();
-        const { data: soon } = await admin.from('tasks').select('id,title,sched_start')
+        const from = now.toISOString(), to = new Date(now.getTime() + 125 * 60000).toISOString();
+        const { data: soon } = await admin.from('tasks').select('id,title,sched_start,remind_min')
           .eq('user_id', uid).eq('deleted', false).neq('status', 'done')
           .gte('sched_start', from).lte('sched_start', to);
         for (const t of soon || []) {
+          const lead = t.remind_min ?? 15;
+          if (lead <= 0) continue;                                         // 🔕 بدون تذكير
+          const startMs = Date.parse(t.sched_start);
+          if (startMs - lead * 60000 > now.getTime() + 5 * 60000) continue;  // لم يحن وقت التذكير بعد (المؤقّت كل 5 دقائق)
           if (!await once(uid, 'reminder', `${t.id}@${t.sched_start}`)) continue;
+          const mins = Math.max(0, Math.round((startMs - now.getTime()) / 60000));
           await pushToUser(uid, {
             title: `⏰ ${t.title}`,
-            body: `تبدأ الساعة ${localParts(t.sched_start, s.tz).time}`,
+            body: `تبدأ الساعة ${localParts(t.sched_start, s.tz).time}${mins ? ` (بعد ${mins} دقيقة)` : ''}`,
             url: './?plan=1', tag: 'rem-' + t.id
           });
         }

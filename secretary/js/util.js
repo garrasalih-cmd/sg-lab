@@ -83,3 +83,54 @@ export function guessCategory(text) {
 
 // حماية من HTML داخل عناوين المهام (مثلًا نص منسوخ من واتساب)
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* =====================================================================
+   قوالب مدرسية وشخصية جاهزة ⚡ (بضغطة واحدة: العنوان + الفئة + المدة + التكرار)
+   أضف أو عدّل القوالب هنا براحتك
+   ===================================================================== */
+export const TEMPLATES = [
+  { icon: '📝', title: 'تحضير حصة', category: 'school', duration_min: 45, recur: 'weekly' },
+  { icon: '✍️', title: 'تصحيح امتحان', category: 'school', duration_min: 60 },
+  { icon: '📞', title: 'اتصال بولي أمر', category: 'school', duration_min: 15 },
+  { icon: '🚸', title: 'مناوبة', category: 'school', duration_min: 30, recur: 'weekly' },
+  { icon: '👥', title: 'اجتماع طاقم', category: 'school', duration_min: 60 },
+  { icon: '🔌', title: 'تجهيز المختبر', category: 'school', duration_min: 30 },
+  { icon: '🛒', title: 'شراء أغراض', category: 'home', duration_min: 30 },
+  { icon: '👨‍👩‍👧', title: 'زيارة الأهل', category: 'family', duration_min: 60 },
+  { icon: '🏃', title: 'رياضة', category: 'personal', duration_min: 30, recur: 'daily' }
+];
+
+/* ---------- خيارات التذكير (بالدقائق قبل الموعد) ---------- */
+export const REMIND_OPTS = [[0, '🔕 بدون'], [5, '5 د'], [15, '15 د'], [30, '30 د'], [60, 'ساعة']];
+export const DEFAULT_REMIND = 15;
+
+/* =====================================================================
+   جدول الحصص 🏫 (كل أيام الأسبوع)
+   periods: أوقات الجرس  ·  days: لكل يوم (0=الأحد … 6=السبت) أرقام حصصك
+   ===================================================================== */
+export const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+export const DAY_SHORT = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+export const DEFAULT_TIMETABLE = {
+  periods: [
+    { start: '08:00', end: '08:45' }, { start: '08:45', end: '09:30' },
+    { start: '09:45', end: '10:30' }, { start: '10:30', end: '11:15' },
+    { start: '11:30', end: '12:15' }, { start: '12:15', end: '13:00' },
+    { start: '13:15', end: '14:00' }, { start: '14:00', end: '14:45' }
+  ],
+  days: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }
+};
+
+// حصص يوم معيّن ⇒ «أحداث» مشغولة للخطة (مثل أحداث التقويم)
+export function timetableEvents(timetable, day) {
+  if (!timetable?.periods?.length) return [];
+  const [y, m, d] = day.split('-').map(Number);
+  const wd = new Date(y, m - 1, d).getDay();
+  const mine = timetable.days?.[wd] || [];
+  return mine
+    .map(n => ({ n, p: timetable.periods[n - 1] }))
+    .filter(x => x.p?.start && x.p?.end)
+    .map(({ n, p }) => ({
+      title: `حصة ${n}`, icon: '🏫', cal: 'جدول الحصص',
+      start: `${day}T${p.start}:00`, end: `${day}T${p.end}:00`, allDay: false
+    }));
+}

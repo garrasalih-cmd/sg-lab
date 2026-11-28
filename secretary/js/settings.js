@@ -6,7 +6,7 @@ import * as sync from './sync.js';
 import * as cal from './calendar.js';
 import * as store from './store.js';
 import { $, onShow, toast, chips, pref } from './ui.js';
-import { esc, todayStr } from './util.js';
+import { esc, todayStr, DAY_SHORT, DEFAULT_TIMETABLE } from './util.js';
 
 onShow('settings', render);
 window.addEventListener('sek:sync', () => { if (!$('[data-screen="settings"]').hidden) renderAccount(); });
@@ -15,6 +15,7 @@ async function render() {
   renderAccount();
   renderPush();
   renderDay();
+  renderTimetable();
   renderVoice();
   renderApp();
 }
@@ -89,6 +90,63 @@ async function renderPush() {
   const tbind = (id, key) => { const el = $(id); el.value = s[key]; el.onchange = () => el.value && sync.saveSettings({ [key]: el.value }); };
   tbind('#morning-time', 'morning_time');
   tbind('#evening-time', 'evening_time');
+}
+
+/* ---------- 🏫 جدول الحصص (كل أيام الأسبوع) ---------- */
+async function renderTimetable() {
+  const s = await sync.getSettings();
+  // نسخة قابلة للتعديل (مع ضمان وجود الأيام السبعة)
+  const tt = JSON.parse(JSON.stringify(s.timetable || DEFAULT_TIMETABLE));
+  for (let d = 0; d < 7; d++) tt.days[d] = tt.days?.[d] || [];
+  // نحفظ أولًا ثم نعيد الرسم (حتى لا تضيع ضغطة سريعة)
+  const save = () => sync.saveSettings({ timetable: tt });
+
+  // الشبكة: الأعمدة = الأيام، الصفوف = الحصص. اضغط مربعًا لتبديله، أو اسم اليوم لتحديد/مسح اليوم كله
+  const grid = $('#tt-grid');
+  const today = new Date().getDay();
+  grid.innerHTML = `<thead><tr><th></th>${DAY_SHORT.map((d, i) => `<th><button type="button" class="tt-day ${i === today ? 'today' : ''}" data-day="${i}">${d}</button></th>`).join('')}</tr></thead>
+    <tbody>${tt.periods.map((p, pi) => `<tr><th class="tt-pn">${pi + 1}<small>${p.start}</small></th>${DAY_SHORT.map((_, d) => {
+      const on = tt.days[d].includes(pi + 1);
+      return `<td><button type="button" class="tt-cell ${on ? 'on' : ''}" data-d="${d}" data-p="${pi + 1}" aria-pressed="${on}" aria-label="${DAY_SHORT[d]} حصة ${pi + 1}">${on ? '🏫' : ''}</button></td>`;
+    }).join('')}</tr>`).join('')}</tbody>`;
+  grid.onclick = async e => {
+    const cell = e.target.closest('.tt-cell'), day = e.target.closest('.tt-day');
+    if (cell) {
+      const d = +cell.dataset.d, p = +cell.dataset.p, arr = tt.days[d];
+      const i = arr.indexOf(p); i >= 0 ? arr.splice(i, 1) : arr.push(p);
+      arr.sort((a, b) => a - b);
+    } else if (day) {
+      const d = +day.dataset.day;
+      tt.days[d] = tt.days[d].length ? [] : tt.periods.map((_, i) => i + 1);
+    } else return;
+    await save(); renderTimetable();
+  };
+
+  // أوقات الجرس
+  $('#tt-periods').innerHTML = tt.periods.map((p, i) => `<li class="tt-prow">
+      <span>حصة ${i + 1}</span>
+      <input type="time" data-i="${i}" data-k="start" value="${p.start}" aria-label="بداية حصة ${i + 1}">
+      <span>–</span>
+      <input type="time" data-i="${i}" data-k="end" value="${p.end}" aria-label="نهاية حصة ${i + 1}"></li>`).join('');
+  $('#tt-periods').onchange = async e => {
+    const inp = e.target.closest('input[type="time"]'); if (!inp || !inp.value) return;
+    tt.periods[+inp.dataset.i][inp.dataset.k] = inp.value;
+    await save(); renderTimetable();
+  };
+  $('#tt-add').onclick = async () => {
+    const last = tt.periods.at(-1) || { end: '08:00' };
+    const [h, m] = last.end.split(':').map(Number), t = h * 60 + m;
+    const f = x => `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    tt.periods.push({ start: f(t), end: f(t + 45) });
+    await save(); renderTimetable();
+  };
+  $('#tt-remove').onclick = async () => {
+    if (!tt.periods.length) return;
+    const n = tt.periods.length;
+    tt.periods.pop();
+    for (let d = 0; d < 7; d++) tt.days[d] = tt.days[d].filter(p => p !== n);
+    await save(); renderTimetable();
+  };
 }
 
 /* ---------- 🕐 يومي ---------- */

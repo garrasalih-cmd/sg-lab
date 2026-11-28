@@ -370,3 +370,35 @@ body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-spa
 .plan-item .act { flex-basis: 44px; height: 44px; }
 .plan-item .body { cursor: pointer; }
 #p-clear-done { margin-top: 6px; }
+
+
+/* ---------- ⚡ القوالب ---------- */
+.tpl-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.tpl-row::-webkit-scrollbar { display: none; }
+.tpl { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--surface-2); font-weight: 600; white-space: nowrap; }
+.tpl:active { transform: scale(.96); }
+
+/* ---------- 👆 السحب ---------- */
+.task, .plan-item { touch-action: pan-y; transition: transform .2s, opacity .2s, box-shadow .2s; }
+.swipe-done { box-shadow: inset 0 0 0 2px var(--accent); }
+.swipe-del { box-shadow: inset 0 0 0 2px var(--danger); }
+
+/* ---------- 🏫 جدول الحصص ---------- */
+.tt-wrap { overflow-x: auto; margin: 8px -4px 0; }
+.tt-grid { border-collapse: separate; border-spacing: 3px; width: 100%; min-width: 330px; }
+.tt-grid th { font-weight: 700; font-size: .78rem; color: var(--muted); }
+.tt-day { width: 100%; min-height: 36px; border-radius: 8px; font-size: .78rem; font-weight: 700; color: var(--muted); }
+.tt-day.today { color: var(--accent); }
+.tt-pn { width: 34px; line-height: 1.1; }
+.tt-pn small { display: block; font-size: .62rem; font-weight: 400; }
+.tt-cell { width: 100%; height: 38px; border-radius: 8px; background: var(--surface-2); font-size: 1rem; }
+.tt-cell.on { background: color-mix(in srgb, var(--c-school) 35%, var(--surface-2)); box-shadow: inset 0 0 0 2px var(--c-school); }
+.tt-periods { list-style: none; padding: 0; margin: 8px 0; }
+.tt-prow { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.tt-prow span:first-child { flex: 0 0 56px; font-weight: 700; font-size: .9rem; }
+.tt-prow input[type="time"] { flex: 1; min-height: 44px; padding: 6px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; min-width: 0; }
+/* الجدول يتسع للشاشة بدون قص عمود أرقام الحصص */
+.tt-wrap { margin: 8px 0 0; }
+.tt-grid { table-layout: fixed; min-width: 0; border-spacing: 2px; }
+.tt-grid th:first-child, .tt-pn { width: 32px; }
+.tt-day { font-size: .72rem; padding: 0; }

@@ -89,3 +89,56 @@ export const vibrate = ms => { try { navigator.vibrate?.(ms); } catch { /* */ } 
 export function openPicker(input) {
   try { input.showPicker(); } catch { input.focus(); input.click(); }
 }
+
+/* =====================================================================
+   👆 سحب المهمة بالإصبع: لليمين ⇒ ✓ إنهاء، لليسار ⇒ 🗑️ حذف
+   list: عنصر القائمة <ul> · كل مهمة <li data-id="…">
+   نتجاهل السحب إذا بدأ على زر أو على مقبض الترتيب ⋮⋮
+   ===================================================================== */
+export function enableSwipe(list, { right, left }) {
+  const LIMIT = 90;   // المسافة اللازمة لتنفيذ الإجراء (بالبكسل)
+  let li = null, x0 = 0, y0 = 0, dx = 0, swiping = false, id = null;
+
+  list.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, .handle, input')) return;
+    li = e.target.closest('li[data-id]'); if (!li) return;
+    x0 = e.clientX; y0 = e.clientY; dx = 0; swiping = false; id = e.pointerId;
+  });
+  list.addEventListener('pointermove', e => {
+    if (!li || e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    const dy = e.clientY - y0;
+    if (!swiping) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { li = null; return; }   // تمرير عمودي عادي
+      if (Math.abs(dx) < 12) return;
+      swiping = true;
+      try { li.setPointerCapture(id); } catch { /* */ }
+    }
+    li.style.transition = 'none';
+    li.style.transform = `translateX(${dx}px)`;
+    li.classList.toggle('swipe-done', dx > 30);
+    li.classList.toggle('swipe-del', dx < -30);
+  });
+  const end = async () => {
+    if (!li) return;
+    const el = li, d = dx, was = swiping; li = null;
+    el.style.transition = '';
+    if (!was) return;
+    // نمنع «النقرة» التي تأتي بعد السحب
+    el.dataset.swiped = '1'; setTimeout(() => delete el.dataset.swiped, 400);
+    if (d > LIMIT || d < -LIMIT) {
+      el.style.transform = `translateX(${d > 0 ? 120 : -120}%)`;
+      el.style.opacity = '0';
+      vibrate(25);
+      await new Promise(r => setTimeout(r, 180));
+      (d > 0 ? right : left)(el.dataset.id);
+    } else {
+      el.style.transform = '';
+      el.classList.remove('swipe-done', 'swipe-del');
+    }
+  };
+  list.addEventListener('pointerup', end);
+  list.addEventListener('pointercancel', end);
+  // نقرة بعد سحب ⇒ تُلغى
+  list.addEventListener('click', e => { if (e.target.closest('li')?.dataset.swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
+}

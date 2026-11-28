@@ -4,8 +4,8 @@
 import * as store from './store.js';
 import * as voice from './voice.js';
 import { startFromFile } from './ocr.js';
-import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back } from './ui.js';
-import { CATS, IMPORTANCE, DURATIONS, RECUR, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
+import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe } from './ui.js';
+import { CATS, IMPORTANCE, DURATIONS, RECUR, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
 
 /* ---------- حالة نموذج الإضافة ---------- */
 const form = {
@@ -15,6 +15,8 @@ const form = {
   defaultDue: 'none',    // «today» إذا فتحتَ النموذج من صفحة اليوم
   pickDate: null,
   time: null,            // null = بدون وقت، أو "HH:MM"
+  remind: DEFAULT_REMIND, // التذكير قبل الموعد بالدقائق (0 = بدون)
+  duration: null,        // المدة (من القوالب الجاهزة)
   recur: '',
   source: null
 };
@@ -59,6 +61,26 @@ export function setupHome() {
 
   // 🔄 التكرار
   setupRecur();
+  // 🔔 التذكير
+  setupRemind();
+  // ⚡ القوالب الجاهزة: ضغطة واحدة تملأ العنوان والفئة والمدة والتكرار
+  $('#tpl-chips').innerHTML = TEMPLATES.map((t, i) => `<button type="button" class="tpl" data-i="${i}">${t.icon} ${t.title}</button>`).join('');
+  $('#tpl-chips').onclick = e => {
+    const b = e.target.closest('.tpl'); if (!b) return;
+    const t = TEMPLATES[+b.dataset.i];
+    input.value = t.title + ' ';
+    form.cat = t.category; form.catTouched = true; selectCat($('#cats'), t.category);
+    form.duration = t.duration_min || null;
+    form.recur = t.recur || ''; setupRecur();
+    if (t.recur && form.due === 'none') { form.due = 'today'; paintDue(); }
+    input.focus();
+    toast(`${t.icon} ${t.title}: ${CATS[t.category].label}${t.duration_min ? ' · ' + t.duration_min + ' د' : ''}${t.recur ? ' · 🔄 ' + RECUR[t.recur] : ''}. أكمل الاسم إن أردت`);
+  };
+  // 👆 السحب: لليمين ✓ إنهاء، لليسار 🗑️ حذف
+  enableSwipe($('#task-list'), {
+    right: async id => { await store.complete(id); toast('أحسنت! ✓', { label: 'تراجع', run: () => store.reopen(id) }); },
+    left: async id => { await store.remove(id); toast('🗑️ حُذفت', { label: 'تراجع', run: () => store.restore(id) }); }
+  });
 
   paintDue(); paintTime();
   $('#add-btn').onclick = () => addTask(false);
@@ -82,6 +104,9 @@ function paintTime() {
   $('#time-chips').querySelectorAll('button').forEach(b =>
     b.setAttribute('aria-checked', b.dataset.time === (form.time ? 'pick' : 'none')));
   $('#time-label').textContent = form.time ? 'الساعة ' + form.time : 'اختر الساعة';
+}
+function setupRemind() {
+  chips($('#remind-chips'), REMIND_OPTS, form.remind, v => { form.remind = +v; });
 }
 function setupRecur() {
   chips($('#recur-chips'), RECUR_OPTS, form.recur, v => {
@@ -115,10 +140,12 @@ async function addTask(keepFocus) {
   input.value = ''; form.source = null; form.catTouched = false;
   form.due = form.defaultDue; form.pickDate = null; form.time = null; $('#time-input').value = ''; paintDue(); paintTime();
   form.recur = ''; setupRecur();
+  const remind = form.remind, duration = form.duration;
+  form.remind = DEFAULT_REMIND; form.duration = null; setupRemind();
   form.cat = pref.get('cat', 'school'); selectCat($('#cats'), form.cat);
   if (keepFocus) input.focus(); else input.blur();
 
-  await store.add({ title, category: cat, due_date, due_time, source, recur });
+  await store.add({ title, category: cat, due_date, due_time, source, recur, remind_min: remind, duration_min: duration });
   toast(`✓ أُضيفت إلى ${CATS[cat].icon} ${CATS[cat].label}${due_time ? ' · ⏰ ' + due_time : ''}${recur ? ' 🔄' : ''}`);
 }
 
@@ -212,6 +239,7 @@ async function renderDetails() {
   chips($('#d-imp'), [['', '—'], ...Object.entries(IMPORTANCE).map(([k, v]) => [k, `${v.icon} ${k}`])], t.importance ?? '', v => save({ importance: v ? +v : null }));
   chips($('#d-dur'), [['', '—'], ...DURATIONS], t.duration_min ?? '', v => save({ duration_min: v ? +v : null }));
   chips($('#d-recur'), [['', 'لا'], ...Object.entries(RECUR)], t.recur ?? '', v => save({ recur: v || null, ...(v && !t.due_date ? { due_date: todayStr() } : {}) }));
+  chips($('#d-remind'), REMIND_OPTS, t.remind_min ?? DEFAULT_REMIND, v => save({ remind_min: +v }));
 
   const d = $('#d-date'), tm = $('#d-time');
   d.value = t.due_date || ''; tm.value = t.due_time || '';

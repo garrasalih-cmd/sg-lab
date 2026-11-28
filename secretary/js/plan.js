@@ -9,8 +9,8 @@ import * as store from './store.js';
 import { planDay } from './planner.js';
 import { eventsFor, gcal } from './calendar.js';
 import { getSettings } from './sync.js';
-import { $, show, onShow, toast, vibrate } from './ui.js';
-import { CATS, IMPORTANCE, todayStr, fromMin, localISO, fmtDuration, esc, longToday } from './util.js';
+import { $, show, onShow, toast, vibrate, enableSwipe } from './ui.js';
+import { CATS, IMPORTANCE, todayStr, fromMin, localISO, fmtDuration, esc, longToday, timetableEvents } from './util.js';
 import * as focus from './focus.js';
 import { openAdd } from './home.js';
 
@@ -26,10 +26,12 @@ async function render(fetchEvents, arg) {
   const settings = await getSettings();
   const { open, done } = await store.planTasks(day);
   // نعرض الأحداث المحفوظة فورًا، ثم نحدّثها من الإنترنت
-  let events = await eventsFor(day, { refresh: false });
+  // 🏫 حصص اليوم من جدولك = أوقات مشغولة لا توضع فيها مهام
+  const classes = timetableEvents(settings.timetable, day);
+  let events = [...classes, ...await eventsFor(day, { refresh: false })];
   draw({ open, done, events, settings, day });
   if (fetchEvents && gcal.connected) {
-    events = await eventsFor(day, { refresh: true });
+    events = [...classes, ...await eventsFor(day, { refresh: true })];
     draw({ open, done, events, settings, day });
   }
   // قادم من «مهام من صورة»: نثبّت الأوقات تلقائيًا حتى تصلك إشعارات التذكير
@@ -72,7 +74,7 @@ function draw({ open, done, events, settings, day }) {
     if (!markerDone && !it.allDay && it.start >= nowMin) { marker = `<li class="now-line">الآن ${fromMin(nowMin)}</li>`; markerDone = true; }
     if (it.kind === 'event') {
       return marker + `<li class="tl event">${it.allDay ? '<span class="tl-time">طوال اليوم</span>' : `<span class="tl-time">${fromMin(it.start)}</span>`}
-        <span>📅 ${esc(it.title)}</span></li>`;
+        <span>${it.icon || '📅'} ${esc(it.title)}</span></li>`;
     }
     return marker + `<li class="tl task" style="--cat:var(--c-${it.task.category})"><span class="tl-time">${fromMin(it.start)}</span>
       <span>${CATS[it.task.category]?.icon || ''} ${esc(it.task.title)}</span></li>`;
@@ -136,6 +138,12 @@ $('#p-list').addEventListener('click', async e => {
   }
 });
 
+/* ---------- 👆 السحب: لليمين ✓ إنهاء، لليسار 🗑️ حذف ---------- */
+enableSwipe($('#p-list'), {
+  right: async id => { await store.complete(id); toast('أحسنت! ✓', { label: 'تراجع', run: () => store.reopen(id) }); },
+  left: async id => { await store.remove(id); toast('🗑️ حُذفت', { label: 'تراجع', run: () => store.restore(id) }); }
+});
+
 /* ---------- ➕ إضافة سريعة لليوم، 📷 من صورة، 🧹 مسح المنجزة ---------- */
 $('#p-add').onclick = () => openAdd({ today: true });
 $('#p-photo').onclick = () => $('#photo-input').click();
@@ -193,7 +201,7 @@ export async function speakSummary() {
   const day = todayStr();
   const settings = await getSettings();
   const { open } = await store.planTasks(day);
-  const events = await eventsFor(day, { refresh: false });
+  const events = [...timetableEvents(settings.timetable, day), ...await eventsFor(day, { refresh: false })];
   const plan = planDay({ tasks: open, events, settings, day });
   const timed = events.filter(e => !e.allDay);
 

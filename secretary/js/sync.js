@@ -8,6 +8,7 @@
    التعارض: "الأحدث يفوز" حسب updated_at (مطبّق هنا وفي الخادم أيضًا).
    ===================================================================== */
 import { getAllTasks, getTask, putTask, clearTasks, kvGet, kvSet, kvDel } from './db.js';
+import { DEFAULT_TIMETABLE } from './util.js';
 
 // مكتبة Supabase تُحمَّل من CDN عند الحاجة فقط (ويخزّنها Service Worker للأوفلاين)
 const LIB_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
@@ -17,7 +18,7 @@ export const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_KEY);
 // الأعمدة التي يرسلها الهاتف (dirty خاص بالهاتف، وأعمدة gcal_* يكتبها الخادم فقط)
 const COLS = ['id', 'title', 'category', 'due_date', 'due_time', 'importance', 'duration_min', 'status', 'plan_date',
   'postpone_count', 'order_index', 'source', 'completed_at', 'deleted', 'created_at', 'updated_at',
-  'sched_start', 'recur', 'parent_id', 'focus_min'];
+  'sched_start', 'recur', 'parent_id', 'focus_min', 'remind_min'];
 const READ_ONLY = ['gcal_event_id', 'gtask_id'];   // يكتبها الخادم فقط
 
 /* ---------- الحالة المعروضة في الواجهة ----------
@@ -69,7 +70,8 @@ const fromRow = r => {
 export const DEFAULT_SETTINGS = {
   name: 'صالح', tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem',
   day_start: '07:30', day_end: '22:00', morning_time: '06:30', evening_time: '20:30',
-  push_morning: true, push_evening: true, push_reminders: true
+  push_morning: true, push_evening: true, push_reminders: true,
+  timetable: DEFAULT_TIMETABLE    // جدول الحصص 🏫
 };
 let settingsCache = null;
 export async function getSettings() {
@@ -83,7 +85,7 @@ export async function saveSettings(patch) {
   window.dispatchEvent(new Event('sek:settings'));
   schedule();
 }
-const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders'];
+const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders', 'timetable'];
 async function syncSettings(c, uid) {
   if (await kvGet('settings_dirty')) {
     const s = await getSettings();

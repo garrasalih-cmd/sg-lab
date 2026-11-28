@@ -44,7 +44,7 @@ export function planDay({ tasks, events = [], settings, now = new Date(), day })
     const sm = sameDay(s, day) ? minOfDate(s) : 0;
     const em = sameDay(en, day) ? minOfDate(en) : 24 * 60;
     busy.push([sm, em]);
-    evItems.push({ kind: 'event', start: sm, end: em, title: e.title, cal: e.cal, color: e.color });
+    evItems.push({ kind: 'event', start: sm, end: em, title: e.title, cal: e.cal, color: e.color, icon: e.icon });
   }
 
   // ② المهام ذات الساعة الثابتة (لها due_time اليوم، أو حُدّد وقتها من التقويم)

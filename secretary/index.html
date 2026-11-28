@@ -42,6 +42,8 @@
       </div>
       <!-- اختيار صورة: Android يعرض «الكاميرا» أو «المعرض» -->
       <input id="photo-input" type="file" accept="image/*" hidden>
+      <div class="label">⚡ قوالب جاهزة</div>
+      <div id="tpl-chips" class="tpl-row"></div>
       <div class="label">الفئة</div>
       <div id="cats" class="cats" role="radiogroup" aria-label="الفئة"></div>
       <div class="label">الموعد <span class="muted">(اختياري)</span></div>
@@ -58,6 +60,8 @@
         <button type="button" data-time="pick">⏰ <span id="time-label">اختر الساعة</span></button>
       </div>
       <input id="time-input" type="time" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <div class="label">🔔 التذكير قبل الموعد</div>
+      <div id="remind-chips" class="chips"></div>
       <div class="label">🔄 التكرار</div>
       <div id="recur-chips" class="chips"></div>
       <button id="add-btn" class="btn-primary" type="button">➕ أضف المهمة</button>
@@ -209,6 +213,7 @@
       <div class="label">المدة</div><div id="d-dur" class="chips"></div>
       <div class="label">الموعد</div>
       <div class="time-row"><input id="d-date" type="date" aria-label="التاريخ"><input id="d-time" type="time" aria-label="الساعة"><button id="d-date-clear" class="link">مسح</button></div>
+      <div class="label">🔔 التذكير قبل الموعد</div><div id="d-remind" class="chips"></div>
       <div class="label">🔄 التكرار</div><div id="d-recur" class="chips"></div>
     </div>
     <div class="card">
@@ -241,6 +246,19 @@
         <label class="switch-row"><span>⏰ تذكير قبل المهمة<small>قبل موعدها بربع ساعة تقريبًا</small></span><input type="checkbox" id="push-rem"></label>
         <button id="push-test" class="btn-ghost">📨 جرّب إشعارًا</button>
       </div>
+    </div>
+    <div class="card">
+      <h3>🏫 جدول حصصي</h3>
+      <p class="muted small">اضغط على المربعات لتحديد حصصك في كل يوم. لن يضع السكرتير مهامًا في أوقات حصصك.</p>
+      <div class="tt-wrap"><table id="tt-grid" class="tt-grid"></table></div>
+      <details class="more">
+        <summary>⏰ أوقات الجرس (بداية ونهاية كل حصة)</summary>
+        <ul id="tt-periods" class="tt-periods"></ul>
+        <div class="btn-row">
+          <button id="tt-add" class="btn-ghost" type="button">➕ حصة</button>
+          <button id="tt-remove" class="btn-ghost" type="button">➖ آخر حصة</button>
+        </div>
+      </details>
     </div>
     <div class="card">
       <h3>🕐 يومي</h3>
