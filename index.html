@@ -141,7 +141,7 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
   function check(tok) {
     fetch(API + '/me', { headers: { 'x-sg-token': tok } }).then(function (r) {
       if (r.status === 401) { ls('sg_token', null); ls('sg_role', null); visitorEntry(); return; }
-      return r.json().then(function (j) { ls('sg_role', j.role); ls('sg_name', j.name); ready().then(function (reg) { return ask(reg.active, { type: 'login', token: tok }); }).then(enter, enter); });
+      return r.json().then(function (j) { ls('sg_role', j.role); ls('sg_name', j.name); ready().then(function (reg) { return ask(reg.active, { type: 'login', token: tok, role: j.role }); }).then(enter, enter); });
     }).catch(function () { /* بدون إنترنت: ادخل بالنسخة المحفوظة */ if (ls('sg_role')) enter(); else visitorEntry(); });
   }
 
@@ -154,7 +154,7 @@ input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(58,214,255,.14)}
       .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
       .then(function (x) {
         if (x.s === 200) {
-          return ready().then(function (reg) { return ask(reg.active, { type: 'login', token: x.j.token }); }).then(function () {
+          return ready().then(function (reg) { return ask(reg.active, { type: 'login', token: x.j.token, role: x.j.role }); }).then(function () {
             ls('sg_token', x.j.token); ls('sg_role', x.j.role); ls('sg_name', x.j.name); live(1);
             say('تم الدخول ✔', 'ok'); enter();
           }, function () { say('تعذّر تجهيز الموقع على هذا المتصفح. جرّب Chrome أو Safari حديث، وتأكد أنك لا تتصفح بوضع خاص.', 'err'); go.disabled = false; go.textContent = 'دخول'; });
