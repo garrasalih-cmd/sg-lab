@@ -44,12 +44,21 @@ function renderAccount() {
     return;
   }
   box.innerHTML = `<p class="muted small">سجّل الدخول لحفظ مهامك في السحابة، ولتفعيل التقويم والإشعارات.</p>
+    <button id="g-signin" class="btn-google" type="button"><span class="g-logo">G</span> الدخول بحساب Google</button>
+    <p class="muted small center">دخول واحد: يحفظ مهامك، ويربط Google Calendar و Google Tasks معًا</p>
+    <details class="more"><summary>أو الدخول بالبريد الإلكتروني</summary>
     <div class="form">
       <input id="email" type="email" placeholder="البريد الإلكتروني" autocomplete="email" dir="ltr">
       <input id="password" type="password" placeholder="كلمة المرور (6 أحرف على الأقل)" autocomplete="current-password" dir="ltr">
       <div class="btn-row"><button id="sign-in" class="btn-primary">دخول</button><button id="sign-up" class="btn-ghost">حساب جديد</button></div>
-    </div><p id="auth-msg" class="msg"></p>`;
+    </div></details><p id="auth-msg" class="msg"></p>`;
   const msg = (t, ok) => { const m = $('#auth-msg'); m.textContent = t; m.className = 'msg ' + (ok ? 'ok' : 'err'); };
+  // الدخول بحساب Google: ينقلك إلى صفحة Google ثم يعيدك للتطبيق
+  $('#g-signin').onclick = async () => {
+    msg('⏳ جارٍ فتح صفحة Google…', true);
+    const r = await sync.signInWithGoogle();
+    if (!r.ok) msg(r.msg);
+  };
   const creds = () => [$('#email').value.trim(), $('#password').value];
   $('#sign-in').onclick = async () => {
     const [e, p] = creds(); if (!e || !p) return msg('أدخل البريد وكلمة المرور');

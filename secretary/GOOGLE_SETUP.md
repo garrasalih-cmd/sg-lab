@@ -81,10 +81,14 @@
 2. اضغط **+ CREATE CLIENT**.
 3. **Application type**: اختر **Web application**.
 4. **Name**: `sekretiri-server`
-5. انزل إلى **Authorized redirect URIs**، واضغط **+ ADD URI**، والصق **بالضبط** (بدون مسافات أو / في النهاية):
+5. انزل إلى **Authorized redirect URIs**، وأضف **رابطين** (اضغط **+ ADD URI** لكل واحد، والصقه **بالضبط** بدون مسافات):
+   ```
+   https://duxhqrohiquqrvnfklez.supabase.co/auth/v1/callback
+   ```
    ```
    https://duxhqrohiquqrvnfklez.supabase.co/functions/v1/sek
    ```
+   > الأول لزر **«الدخول بحساب Google»**، والثاني لزر «ربط Google Calendar» (للحسابات بالبريد).
    > اترك «Authorized JavaScript origins» فارغًا.
 6. اضغط **CREATE**.
 7. 🖼️ *تظهر نافذة «OAuth client created» فيها:*
@@ -95,7 +99,16 @@
 
 ---
 
-## الخطوة 5: وضع المفتاحين في Supabase
+## الخطوة 5: وضع المفتاحين في Supabase (مكانان)
+
+### 5أ: تفعيل «الدخول بحساب Google»
+1. **supabase.com/dashboard** ← المشروع **sekretiri**.
+2. **Authentication** ← **Sign In / Providers** (أو **Providers**).
+3. اضغط **Google** ← فعّل المفتاح **Enable Sign in with Google**.
+4. الصق **Client ID** في حقل *Client IDs*، و **Client Secret** في حقله.
+5. اضغط **Save**.
+
+### 5ب: مفاتيح الخادم (للتقويم و Google Tasks)
 
 1. افتح **supabase.com/dashboard**، ثم المشروع **sekretiri**.
 2. من القائمة الجانبية اختر **Edge Functions** ثم **Secrets** (أو Settings ← Edge Functions).
@@ -112,15 +125,17 @@
 
 ---
 
-## الخطوة 6: الربط من الهاتف 🎉
+## الخطوة 6: الدخول من الهاتف 🎉
 
-1. افتح **سكرتيري** ← ⚙️ ← **📅 Google Calendar** ← **🔗 ربط Google Calendar**.
+1. افتح **سكرتيري** ← ⚙️ ← **☁️ الحساب** ← اضغط الزر الأبيض **«الدخول بحساب Google»**.
+   (إن كنت دخلت بالبريد سابقًا: ⚙️ ← 📅 Google Calendar ← 🔗 ربط)
 2. اختر حسابك.
 3. 🖼️ *قد تظهر شاشة تحذير: **«Google hasn't verified this app»**. هذا طبيعي لأنه تطبيقك الشخصي:*
    - اضغط **Advanced** (خيارات متقدّمة)
    - ثم **Go to سكرتيري (unsafe)** (الانتقال إلى سكرتيري)
 4. ضع ✓ على **كل** الصلاحيات (التقويم والمهام)، ثم اضغط **Continue / متابعة**.
-5. يعيدك Google إلى التطبيق مع رسالة **✅ تم ربط Google Calendar**.
+5. يعيدك Google إلى التطبيق مع رسالة **✅ أهلًا بك! رُبط Google Calendar و Google Tasks**.
+   ستبدأ مهامك من Google Tasks بالظهور خلال ثوانٍ.
 6. افتح تطبيق **Google Calendar** على هاتفك: ستجد تقويمًا جديدًا اسمه **«سكرتيري»**.
    - إن لم يظهر: ☰ ← انزل إلى قائمة التقاويم ← تأكد أن «سكرتيري» عليه ✓.
 
@@ -159,7 +174,8 @@
 
 | الرسالة | السبب والحل |
 |---|---|
-| `redirect_uri_mismatch` | رابط الخطوة 4.5 غير مطابق. انسخه مرة أخرى بالضبط |
+| `redirect_uri_mismatch` | أحد رابطي الخطوة 4.5 غير مطابق. انسخهما مرة أخرى بالضبط |
+| «الدخول بـ Google لم يُفعَّل بعد في Supabase» | لم تُكمل الخطوة 5أ |
 | «الخادم ينتظر مفاتيح Google Cloud» | لم تُحفظ الأسرار في الخطوة 5، أو الاسم مكتوب خطأ |
 | `access_denied` | ضغطت «إلغاء»، أو التطبيق ما زال في Testing ولم تضف بريدك. انشره (الخطوة 3ج) |
 | انقطع الربط بعد أسبوع | التطبيق في وضع Testing. انشره (الخطوة 3ج) ثم اربط من جديد |

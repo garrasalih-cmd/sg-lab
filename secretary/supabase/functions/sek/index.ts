@@ -3,10 +3,10 @@
 // ثلاثة أنواع من الطلبات:
 //   1) GET  ?code=…&state=…   ⇒ عودة من صفحة موافقة Google (OAuth callback)
 //   2) POST + x-cron-secret   ⇒ المؤقّت كل 5 دقائق: مزامنة التقويم + الإشعارات
-//   3) POST {action} + JWT    ⇒ طلبات التطبيق: status / connect / disconnect / events / sync / test_push
+//   3) POST {action} + JWT    ⇒ طلبات التطبيق: status / connect / store_google / disconnect / events / sync / test_push
 // =====================================================================
 import { admin, json, CORS, cfg } from './shared.ts';
-import { googleConfigured, startConnect, handleCallback, disconnect, listEvents, syncUser } from './google.ts';
+import { googleConfigured, startConnect, handleCallback, disconnect, listEvents, syncUser, storeGoogleToken } from './google.ts';
 import { runNotifications, pushToUser, sendPush } from './notify.ts';
 
 Deno.serve(async (req) => {
@@ -47,6 +47,15 @@ Deno.serve(async (req) => {
         // نسمح بالعودة فقط إلى عنوان https (أو localhost للتجربة) ⇒ حماية من إعادة التوجيه الخبيثة
         if (!/^https:\/\/[^/]+/.test(ret) && !/^http:\/\/localhost(:\d+)?\//.test(ret)) return json({ error: 'bad_return_url' }, 400);
         return json({ url: await startConnect(user.id, ret) });
+      }
+
+      case 'store_google': {
+        // بعد «الدخول بحساب Google»: نحفظ مفتاح Google لربط التقويم و Google Tasks تلقائيًا
+        if (!googleConfigured()) return json({ error: 'google_not_configured' }, 400);
+        const rt = String(body.refresh_token || '');
+        if (!rt) return json({ error: 'no_refresh_token' }, 400);
+        await storeGoogleToken(user.id, user.email ?? null, rt);
+        return json({ ok: true });
       }
 
       case 'disconnect':

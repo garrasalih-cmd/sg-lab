@@ -75,6 +75,20 @@ export async function handleCallback(url: URL): Promise<Response> {
   return back('ok');
 }
 
+// الدخول بـ Google من التطبيق (Supabase Auth): التطبيق يرسل refresh_token الذي أعطاه Google
+// ⇒ نتحقق منه بتجديده، ثم نحفظه وننشئ تقويم «سكرتيري» ونزامن فورًا
+export async function storeGoogleToken(userId: string, email: string | null, refreshToken: string) {
+  const { data: old } = await admin.from('google_tokens').select('calendar_id').eq('user_id', userId).maybeSingle();
+  const tok: Tok = {
+    user_id: userId, email, refresh_token: refreshToken, access_token: null, expires_at: null,
+    calendar_id: old?.calendar_id ?? null, sync_token: null, tasks_synced_at: null
+  };
+  await admin.from('google_tokens').upsert(tok);
+  try { await accessToken(tok); }            // مفتاح غير صالح ⇒ نحذفه ونبلّغ التطبيق
+  catch (e) { await admin.from('google_tokens').delete().eq('user_id', userId); throw e; }
+  try { await ensureCalendar(tok); await syncUser(tok); } catch (e) { console.error('first sync', e); }
+}
+
 export async function disconnect(userId: string) {
   const { data: tok } = await admin.from('google_tokens').select('*').eq('user_id', userId).maybeSingle();
   if (tok) {
