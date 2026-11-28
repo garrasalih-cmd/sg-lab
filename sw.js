@@ -18,7 +18,12 @@ const idb = () => new Promise((res, rej) => { const r = indexedDB.open('sg-auth'
 const kvGet = async k => { const d = await idb(); return new Promise(res => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(undefined); }); };
 const kvSet = async (k, v) => { const d = await idb(); return new Promise(res => { const t = d.transaction('kv', 'readwrite'); v === undefined ? t.objectStore('kv').delete(k) : t.objectStore('kv').put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); }); };
 let TOKEN; const token = async () => (TOKEN !== undefined ? TOKEN : (TOKEN = (await kvGet('token')) || ''));
-async function wipe() { TOKEN = ''; await kvSet('token', undefined); const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sg-private')).map(k => caches.delete(k))); }
+/* wipe(true) = امسح الرمز فقط (جلسة متصفح جديدة: يُطلب الكود لكن تبقى ملفات الموقع محفوظة فيفتح التطبيق بسرعة)
+   wipe() = امسح الرمز وكل النسخ المحفوظة (خروج صريح / رمز منتهٍ) */
+async function dropCaches(names) { const ks = await caches.keys(); await Promise.all(ks.filter(k => names.includes(k)).map(k => caches.delete(k))); }
+async function wipe(tokenOnly) { TOKEN = ''; await kvSet('token', undefined); if (tokenOnly) return; await kvSet('role', undefined); const ks = await caches.keys(); await Promise.all(ks.filter(k => k.startsWith('sg-private')).map(k => caches.delete(k))); }
+/* ملفات الموقع: النسخة المحفوظة فوراً، ثم تحديثها في الخلفية (stale-while-revalidate) */
+const timeout = ms => new Promise(r => setTimeout(r, ms));
 
 /* عدد نوافذ الموقع المفتوحة (باستثناء نافذة معيّنة إن مُرّر معرّفها). صفر = المتصفح كان مغلقاً */
 const liveClients = async (exceptId) => (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).filter(c => c.id !== exceptId).length;
@@ -51,9 +56,16 @@ async function guardApp(blob) {
 }
 
 /* وضع الزائر: بلا رمز جلسة → المحتوى من دالة pub (نسخة الطالب بلا ملفات المعلم) ولا تحويل لصفحة الدخول */
-async function visitor(rel, req, url) {
+async function visitor(rel, req, url, ev) {
   const cache = await caches.open(isImg(rel) ? VIMG : VCACHE), key = new Request(url.origin + url.pathname);
-  if (isImg(rel)) { const hit = await cache.match(key); if (hit) return hit; }
+  const hit0 = await cache.match(key);
+  if (isImg(rel) && hit0) return hit0;
+  const isApp = req.mode === 'navigate' && rel === 'app.html';
+  if (hit0 && !isApp) { ev.waitUntil(visitorFresh(rel, req, url, cache, key).catch(() => {})); return hit0; }   // الملف محفوظ: أعده فوراً وحدّثه بالخلفية
+  if (hit0 && isApp) return Promise.race([visitorFresh(rel, req, url, cache, key), timeout(2500).then(() => hit0)]);   // الصفحة: الشبكة إن ردّت خلال 2.5 ث وإلا المحفوظة
+  return visitorFresh(rel, req, url, cache, key);
+}
+async function visitorFresh(rel, req, url, cache, key) {
   try {
     const r = await fetch(PUB + '/c/' + rel.split('/').map(encodeURIComponent).join('/'), { cache: 'no-store' });
     if (r.status === 403 && req.mode === 'navigate') return Response.redirect(SCOPE + 'app.html', 302);   // صفحة للمعلم فقط
@@ -83,11 +95,14 @@ self.addEventListener('fetch', e => {
   e.respondWith((async () => {
     const goLogin = () => (req.mode === 'navigate' ? Response.redirect(SCOPE, 302) : new Response('unauthorized', { status: 401 }));
     /* الدخول ينتهي بإغلاق المتصفح: إن لم تكن هناك أي نافذة/تبويب مفتوح للموقع فهذه جلسة متصفح جديدة → امسح الرمز واطلب الكود */
-    if (req.mode === 'navigate' && !(await liveClients())) await wipe();
+    if (req.mode === 'navigate' && !(await liveClients())) await wipe(true);
     const tok = await token();
-    if (!tok) return visitor(rel, req, url);                                         // زائر بلا جلسة
+    if (!tok) return visitor(rel, req, url, e);                                         // زائر بلا جلسة
     const cache = await caches.open(isImg(rel) ? IMG : CACHE), key = new Request(url.origin + url.pathname);   // بدون ?query
-    if (isImg(rel)) { const hit = await cache.match(key); if (hit) return hit; }
+    const hit0 = await cache.match(key);
+    if (isImg(rel) && hit0) return hit0;
+    const isApp = req.mode === 'navigate' && rel === 'app.html';
+    const fresh = async () => {
     try {
       const r = await fromServer(rel, tok);
       if (r.status === 401) { await wipe(); return goLogin(); }
@@ -102,15 +117,23 @@ self.addEventListener('fetch', e => {
       const hit = await cache.match(key); if (hit) return hit;
       return req.mode === 'navigate' ? new Response('<meta charset=utf-8><body style="background:#070a10;color:#eaf2fb;font:18px sans-serif;text-align:center;padding:3rem" dir=rtl>لا يوجد اتصال، وهذه الصفحة غير محفوظة للعمل بدون إنترنت.', { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }) : Response.error();
     }
+    };
+    if (hit0 && !isApp) { e.waitUntil(fresh().catch(() => {})); return hit0; }       // محفوظ: فوراً + تحديث بالخلفية
+    if (hit0 && isApp) return Promise.race([fresh(), timeout(2500).then(() => hit0)]);  // الصفحة الرئيسية: الشبكة خلال 2.5 ث وإلا المحفوظة
+    return fresh();
   })());
 });
 
 self.addEventListener('message', e => {
   const d = e.data || {}, port = e.ports && e.ports[0], done = v => port && port.postMessage(v);
-  if (d.type === 'login') e.waitUntil((async () => { await wipe(); TOKEN = d.token; await kvSet('token', d.token); done({ ok: true }); })());
+  if (d.type === 'login') e.waitUntil((async () => {
+    const prev = await kvGet('role'), role = d.role || '';
+    if (!role || prev !== role) await dropCaches([CACHE, IMG]);                      // تغيّر الدور (معلم↔طالب) أو دور مجهول: امسح النسخ الخاصة؛ نفس الدور: أبقها
+    TOKEN = d.token; await kvSet('token', d.token); await kvSet('role', role || undefined); done({ ok: true });
+  })());
   else if (d.type === 'alive') e.waitUntil((async () => {                           // هل توجد جلسة دخول حيّة في تبويب آخر؟
     const live = (await liveClients(e.source && e.source.id)) > 0 && !!(await token());
-    if (!live) await wipe();                                                         // جلسة متصفح جديدة: امسح الرمز والنسخ المحفوظة
+    if (!live) await wipe(true);                                                     // جلسة متصفح جديدة: امسح الرمز فقط (تبقى الملفات)
     done({ alive: live });
   })());
   else if (d.type === 'logout') e.waitUntil((async () => { await wipe(); done({ ok: true }); })());
