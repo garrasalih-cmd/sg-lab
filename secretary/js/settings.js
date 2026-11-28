@@ -6,7 +6,7 @@ import * as sync from './sync.js';
 import * as cal from './calendar.js';
 import * as store from './store.js';
 import { $, onShow, toast, chips, pref } from './ui.js';
-import { esc, todayStr, DAY_SHORT, DEFAULT_TIMETABLE } from './util.js';
+import { esc, todayStr, DAY_SHORT, normalizeTimetable, SCHOOL_DOTS, SCHOOL_COLORS } from './util.js';
 
 onShow('settings', render);
 window.addEventListener('sek:sync', () => { if (!$('[data-screen="settings"]').hidden) renderAccount(); });
@@ -16,6 +16,7 @@ async function render() {
   renderPush();
   renderDay();
   renderTimetable();
+  renderGradingGoal();
   renderVoice();
   renderApp();
 }
@@ -92,61 +93,88 @@ async function renderPush() {
   tbind('#evening-time', 'evening_time');
 }
 
-/* ---------- 🏫 جدول الحصص (كل أيام الأسبوع) ---------- */
+/* ---------- 🏫 جدول الحصص لمدرستين (كل أيام الأسبوع) ---------- */
+let ttSchool = 'a';                       // المدرسة المعروضة في المحرّر
 async function renderTimetable() {
-  const s = await sync.getSettings();
-  // نسخة قابلة للتعديل (مع ضمان وجود الأيام السبعة)
-  const tt = JSON.parse(JSON.stringify(s.timetable || DEFAULT_TIMETABLE));
-  for (let d = 0; d < 7; d++) tt.days[d] = tt.days?.[d] || [];
-  // نحفظ أولًا ثم نعيد الرسم (حتى لا تضيع ضغطة سريعة)
-  const save = () => sync.saveSettings({ timetable: tt });
+  const st = await sync.getSettings();
+  const tt = normalizeTimetable(st.timetable);
+  const save = () => sync.saveSettings({ timetable: tt });     // نحفظ أولًا ثم نعيد الرسم
+  const sch = tt.schools.find(x => x.id === ttSchool);
 
-  // الشبكة: الأعمدة = الأيام، الصفوف = الحصص. اضغط مربعًا لتبديله، أو اسم اليوم لتحديد/مسح اليوم كله
-  const grid = $('#tt-grid');
-  const today = new Date().getDay();
+  // تبويبا المدرستين
+  chips($('#tt-schools'), tt.schools.map(x => [x.id, `${SCHOOL_DOTS[x.id]} ${esc(x.name)}`]), ttSchool, v => { ttSchool = v; renderTimetable(); });
+  const nm = $('#tt-name'); nm.value = sch.name;
+  nm.onchange = async () => { sch.name = nm.value.trim().slice(0, 30) || (ttSchool === 'a' ? 'مدرسة أ' : 'مدرسة ب'); await save(); renderTimetable(); };
+  $('#tt-bell-name').textContent = sch.name;
+
+  // الشبكة: الأعمدة = الأيام، الصفوف = حصص المدرسة المختارة.
+  // مربع حصة المدرسة الأخرى في نفس الوقت يظهر باهتًا (لتعرف أنك هناك)
+  const grid = $('#tt-grid'), today = new Date().getDay();
+  const other = tt.schools.find(x => x.id !== ttSchool);
+  const toM = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const busyOther = (d, p) => (tt.days[d] || []).some(code => {
+    if (code[0] === ttSchool) return false;
+    const op = other.periods[+code.slice(1) - 1]; if (!op) return false;
+    return toM(p.start) < toM(op.end) && toM(op.start) < toM(p.end);
+  });
   grid.innerHTML = `<thead><tr><th></th>${DAY_SHORT.map((d, i) => `<th><button type="button" class="tt-day ${i === today ? 'today' : ''}" data-day="${i}">${d}</button></th>`).join('')}</tr></thead>
-    <tbody>${tt.periods.map((p, pi) => `<tr><th class="tt-pn">${pi + 1}<small>${p.start}</small></th>${DAY_SHORT.map((_, d) => {
-      const on = tt.days[d].includes(pi + 1);
-      return `<td><button type="button" class="tt-cell ${on ? 'on' : ''}" data-d="${d}" data-p="${pi + 1}" aria-pressed="${on}" aria-label="${DAY_SHORT[d]} حصة ${pi + 1}">${on ? '🏫' : ''}</button></td>`;
+    <tbody>${sch.periods.map((p, pi) => `<tr><th class="tt-pn">${pi + 1}<small>${p.start}</small></th>${DAY_SHORT.map((_, d) => {
+      const code = ttSchool + (pi + 1), on = tt.days[d].includes(code), clash = !on && busyOther(d, p);
+      return `<td><button type="button" class="tt-cell ${on ? 'on' : ''} ${clash ? 'other' : ''}" style="--sc:${SCHOOL_COLORS[ttSchool]}" data-d="${d}" data-code="${code}" aria-pressed="${on}" aria-label="${DAY_SHORT[d]} حصة ${pi + 1}">${on ? SCHOOL_DOTS[ttSchool] : clash ? SCHOOL_DOTS[other.id] : ''}</button></td>`;
     }).join('')}</tr>`).join('')}</tbody>`;
   grid.onclick = async e => {
     const cell = e.target.closest('.tt-cell'), day = e.target.closest('.tt-day');
     if (cell) {
-      const d = +cell.dataset.d, p = +cell.dataset.p, arr = tt.days[d];
-      const i = arr.indexOf(p); i >= 0 ? arr.splice(i, 1) : arr.push(p);
-      arr.sort((a, b) => a - b);
+      const d = +cell.dataset.d, arr = tt.days[d], i = arr.indexOf(cell.dataset.code);
+      i >= 0 ? arr.splice(i, 1) : arr.push(cell.dataset.code);
     } else if (day) {
-      const d = +day.dataset.day;
-      tt.days[d] = tt.days[d].length ? [] : tt.periods.map((_, i) => i + 1);
+      const d = +day.dataset.day, mine = tt.days[d].filter(c => c[0] === ttSchool);
+      tt.days[d] = tt.days[d].filter(c => c[0] !== ttSchool);
+      if (!mine.length) tt.days[d].push(...sch.periods.map((_, i) => ttSchool + (i + 1)));
     } else return;
     await save(); renderTimetable();
   };
 
-  // أوقات الجرس
-  $('#tt-periods').innerHTML = tt.periods.map((p, i) => `<li class="tt-prow">
+  // 🚗 الطريق
+  $('#tt-travel').textContent = tt.travel_min + ' د';
+  $('#tt-tr-minus').onclick = async () => { tt.travel_min = Math.max(0, tt.travel_min - 5); await save(); renderTimetable(); };
+  $('#tt-tr-plus').onclick = async () => { tt.travel_min = Math.min(120, tt.travel_min + 5); await save(); renderTimetable(); };
+
+  // ⏰ أوقات جرس المدرسة المختارة
+  $('#tt-periods').innerHTML = sch.periods.map((p, i) => `<li class="tt-prow">
       <span>حصة ${i + 1}</span>
       <input type="time" data-i="${i}" data-k="start" value="${p.start}" aria-label="بداية حصة ${i + 1}">
       <span>–</span>
       <input type="time" data-i="${i}" data-k="end" value="${p.end}" aria-label="نهاية حصة ${i + 1}"></li>`).join('');
   $('#tt-periods').onchange = async e => {
     const inp = e.target.closest('input[type="time"]'); if (!inp || !inp.value) return;
-    tt.periods[+inp.dataset.i][inp.dataset.k] = inp.value;
+    sch.periods[+inp.dataset.i][inp.dataset.k] = inp.value;
     await save(); renderTimetable();
   };
   $('#tt-add').onclick = async () => {
-    const last = tt.periods.at(-1) || { end: '08:00' };
-    const [h, m] = last.end.split(':').map(Number), t = h * 60 + m;
-    const f = x => `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
-    tt.periods.push({ start: f(t), end: f(t + 45) });
+    const last = sch.periods.at(-1) || { end: '08:00' };
+    const t = toM(last.end), f = x => `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    sch.periods.push({ start: f(t), end: f(t + 45) });
     await save(); renderTimetable();
   };
   $('#tt-remove').onclick = async () => {
-    if (!tt.periods.length) return;
-    const n = tt.periods.length;
-    tt.periods.pop();
-    for (let d = 0; d < 7; d++) tt.days[d] = tt.days[d].filter(p => p !== n);
+    if (!sch.periods.length) return;
+    const code = ttSchool + sch.periods.length;
+    sch.periods.pop();
+    for (let d = 0; d < 7; d++) tt.days[d] = tt.days[d].filter(c => c !== code);
     await save(); renderTimetable();
   };
+}
+
+/* ---------- 📝 هدف التصحيح اليومي ---------- */
+async function renderGradingGoal() {
+  const s = await sync.getSettings();
+  let goal = s.grading_goal ?? 20;
+  const paint = () => { $('#g-goal').textContent = goal || 'بلا هدف'; };
+  const set = async v => { goal = Math.max(0, Math.min(200, v)); paint(); await sync.saveSettings({ grading_goal: goal }); };
+  $('#g-goal-minus').onclick = () => set(goal - 5);
+  $('#g-goal-plus').onclick = () => set(goal + 5);
+  paint();
 }
 
 /* ---------- 🕐 يومي ---------- */

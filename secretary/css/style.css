@@ -449,3 +449,32 @@ body { padding-bottom: calc(env(safe-area-inset-bottom) + 96px + var(--badge-spa
 .modal-body ul { margin: 6px 0 0; padding-inline-start: 20px; color: var(--text); }
 .modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .modal-btns .btn-primary, .modal-btns .btn-ghost { margin-top: 0; }
+
+
+/* ---------- 📝 التصحيح ---------- */
+.grading-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; }
+.g-head { display: flex; justify-content: space-between; align-items: baseline; }
+.g-head h3 { font-size: 1rem; }
+.g-count { font-size: 1.3rem; font-variant-numeric: tabular-nums; direction: ltr; }
+.gbar { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 6px 0 4px; }
+.gbar > div { height: 100%; background: var(--c-school); border-radius: 999px; transition: width .3s; }
+.gbar.big { height: 12px; }
+.grading-card .btn-ghost { margin-top: 8px; min-height: 48px; }
+.plan-item .act.plus { color: var(--c-school); font-weight: 800; font-size: 1.05rem; }
+.b-summary { margin-top: 14px; padding: 10px 12px; border-radius: 12px; background: var(--bg); line-height: 1.8; }
+.stepper button[data-n="-5"], .stepper button[data-n="5"] { font-size: 1rem; }
+[data-screen="batch"] .stepper { gap: 10px; }
+
+/* ---------- 🏫 مدرستان ---------- */
+.where { font-weight: 700; font-size: .9rem; margin: -2px 0 8px; }
+.class-chip { border-color: color-mix(in srgb, var(--sc, var(--c-school)) 55%, transparent); background: color-mix(in srgb, var(--sc, var(--c-school)) 16%, var(--surface-2)); }
+
+.tt-cell.on { background: color-mix(in srgb, var(--sc) 35%, var(--surface-2)); box-shadow: inset 0 0 0 2px var(--sc); }
+.tt-cell.other { opacity: .45; font-size: .8rem; }
+.stepper.mini { margin: 0; gap: 8px; }
+.stepper.mini button { width: 40px; height: 40px; font-size: 1.2rem; }
+.stepper.mini b { min-width: 56px; font-size: 1rem; }
+#tt-schools { margin: 6px 0 4px; }
+
+.f-g1 { display: block; margin: 8px auto 0; font-size: 1.1rem; padding: 12px 22px; }
+.bar.goal { background: var(--c-home, #3fbf7f); }

@@ -11,6 +11,7 @@ import './plan.js';
 import './review.js';
 import './settings.js';
 import './ocr.js';
+import './grading.js';
 import * as focus from './focus.js';
 
 /* ---------- الشريط العلوي والتنقل ---------- */

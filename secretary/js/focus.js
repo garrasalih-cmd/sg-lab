@@ -27,6 +27,12 @@ onShow('focus', async () => {
   if (!S) return back();
   const t = await store.get(S.taskId);
   $('#f-task').textContent = t ? t.title : '';
+  // 📝 رزمة تصحيح: زر ＋1 ونبدأ عدّ الأوراق من الآن لنتعلم سرعتك
+  $('#f-g1').hidden = !t?.grade_total;
+  if (t?.grade_total) {
+    if (S.g0 == null) { S.g0 = t.grade_done || 0; S.gAt = Date.now(); save(); }
+    paintG(t);
+  }
   // نطلب إذن الإشعارات لتنبيه نهاية الجلسة (مرة واحدة)
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
   requestWake();
@@ -59,6 +65,7 @@ async function phaseEnd() {
   beep();
   if (S.mode === 'focus') {
     S.sessions++;
+    await learn();
     const t = await store.get(S.taskId);
     if (t) await store.update(S.taskId, { focus_min: (t.focus_min || 0) + 25 }, { silent: true });
     notifyUser('☕ وقت الاستراحة', '25 دقيقة تركيز رائعة! خذ 5 دقائق راحة');
@@ -66,13 +73,31 @@ async function phaseEnd() {
   } else {
     notifyUser('🎯 نعود للتركيز', 'انتهت الاستراحة');
     S.mode = 'focus'; S.endAt = Date.now() + FOCUS * 1000;
+    if (S.g0 != null) S.gAt = Date.now();         // الاستراحة لا تُحسب من وقت التصحيح
   }
   save();
+}
+
+const paintG = t => { $('#f-g-count').textContent = `(${t.grade_done || 0}/${t.grade_total})`; };
+$('#f-g1').onclick = async () => {
+  const t = await store.gradeStep(S.taskId, 1); if (!t) return;
+  vibrate(30);
+  const now = await store.get(S.taskId); paintG(now);
+  if (now.status === 'done') { await learn(); S = null; save(); toast('🎉 انتهت الرزمة كلها!'); back(); }
+};
+// نقارن الأوراق المصحّحة بالدقائق الفعلية (بدون أوقات الإيقاف المؤقت تقريبًا)
+async function learn() {
+  if (S?.g0 == null) return;
+  const t = await store.get(S.taskId); if (!t?.grade_total) return;
+  const papers = (t.grade_done || 0) - S.g0, minutes = (Date.now() - S.gAt) / 60000;
+  if (papers >= 2 && minutes >= 3) await store.learnGradeSpeed(S.taskId, minutes, papers);
+  S.g0 = t.grade_done || 0; S.gAt = Date.now();
 }
 
 // حفظ الدقائق التي ركّزتها قبل الإنهاء المبكر
 async function saveElapsed() {
   if (S?.mode !== 'focus') return;
+  await learn();
   const used = Math.round((FOCUS - remaining()) / 60);
   if (used >= 1) {
     const t = await store.get(S.taskId);

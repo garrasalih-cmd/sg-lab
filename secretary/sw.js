@@ -4,7 +4,7 @@
    • "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا ويجلب الجديدة في الخلفية
    • يستقبل إشعارات Push ويعرضها، ويفتح الشاشة المناسبة عند النقر
    ===================================================================== */
-const VERSION = 'v14';
+const VERSION = 'v15';
 const SHELL = 'sek-shell-' + VERSION;
 const RUNTIME = 'sek-runtime';
 
@@ -12,7 +12,7 @@ const ASSETS = [
   './', './index.html', './css/style.css', './config.js', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/store.js', './js/sync.js', './js/voice.js', './js/util.js',
   './js/ui.js', './js/home.js', './js/morning.js', './js/planner.js', './js/plan.js',
-  './js/focus.js', './js/review.js', './js/settings.js', './js/calendar.js', './js/ocr.js',
+  './js/focus.js', './js/review.js', './js/settings.js', './js/calendar.js', './js/ocr.js', './js/grading.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 

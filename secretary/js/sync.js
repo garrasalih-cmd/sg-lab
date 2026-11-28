@@ -18,7 +18,7 @@ export const configured = !!(cfg.SUPABASE_URL && cfg.SUPABASE_KEY);
 // الأعمدة التي يرسلها الهاتف (dirty خاص بالهاتف، وأعمدة gcal_* يكتبها الخادم فقط)
 const COLS = ['id', 'title', 'category', 'due_date', 'due_time', 'importance', 'duration_min', 'status', 'plan_date',
   'postpone_count', 'order_index', 'source', 'completed_at', 'deleted', 'created_at', 'updated_at',
-  'sched_start', 'recur', 'parent_id', 'focus_min', 'remind_min'];
+  'sched_start', 'recur', 'parent_id', 'focus_min', 'remind_min', 'school', 'grade_total', 'grade_done', 'grade_min'];
 const READ_ONLY = ['gcal_event_id', 'gtask_id'];   // يكتبها الخادم فقط
 
 /* ---------- الحالة المعروضة في الواجهة ----------
@@ -49,6 +49,7 @@ const toRow = (t, uid) => {
   for (const c of COLS) row[c] = t[c] ?? null;
   row.postpone_count = t.postpone_count || 0;
   row.focus_min = t.focus_min || 0;
+  row.grade_done = t.grade_done || 0;   // العمود في القاعدة لا يقبل null
   row.deleted = !!t.deleted;
   return row;
 };
@@ -71,7 +72,9 @@ export const DEFAULT_SETTINGS = {
   name: 'صالح', tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jerusalem',
   day_start: '07:30', day_end: '22:00', morning_time: '06:30', evening_time: '20:30',
   push_morning: true, push_evening: true, push_reminders: true,
-  timetable: DEFAULT_TIMETABLE    // جدول الحصص 🏫
+  timetable: DEFAULT_TIMETABLE,   // جدول الحصص 🏫 (مدرستان)
+  grading_goal: 20,              // 📝 الهدف اليومي للتصحيح
+  grade_log: {}                  // أوراق كل يوم
 };
 let settingsCache = null;
 export async function getSettings() {
@@ -85,7 +88,7 @@ export async function saveSettings(patch) {
   window.dispatchEvent(new Event('sek:settings'));
   schedule();
 }
-const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders', 'timetable'];
+const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders', 'timetable', 'grading_goal', 'grade_log'];
 async function syncSettings(c, uid) {
   if (await kvGet('settings_dirty')) {
     const s = await getSettings();

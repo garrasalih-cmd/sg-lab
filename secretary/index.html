@@ -46,6 +46,7 @@
       <div id="tpl-chips" class="tpl-row"></div>
       <div class="label">الفئة</div>
       <div id="cats" class="cats" role="radiogroup" aria-label="الفئة"></div>
+      <div id="school-row" hidden><div class="label">🏫 في أي مدرسة؟</div><div id="school-chips" class="chips"></div></div>
       <div class="label">الموعد <span class="muted">(اختياري)</span></div>
       <div id="due-chips" class="chips" role="radiogroup" aria-label="الموعد">
         <button type="button" data-due="none">بلا موعد</button>
@@ -116,6 +117,8 @@
     </div>
     <!-- 🏫 حصص اليوم (من جدولك) -->
     <div id="p-classes" class="classes-card" hidden></div>
+    <!-- 📝 التصحيح: الهدف اليومي ورزمة جديدة -->
+    <div id="p-grading" class="grading-card"></div>
     <!-- ⚠️ تنبيه التداخل -->
     <div id="p-conflicts" class="warn-banner" role="alert" hidden></div>
     <p id="p-done-count" class="muted"></p>
@@ -137,6 +140,7 @@
   <section data-screen="focus" hidden>
     <p id="f-mode" class="center f-mode">🎯 تركيز</p>
     <h2 id="f-task" class="center f-task"></h2>
+    <button id="f-g1" class="btn-ghost f-g1" hidden>＋1 ورقة <span id="f-g-count"></span></button>
     <div class="ring-wrap">
       <svg viewBox="0 0 200 200" class="ring" aria-hidden="true">
         <circle cx="100" cy="100" r="90" class="ring-bg"/>
@@ -176,9 +180,45 @@
       <div id="w-cats"></div>
       <p id="w-cats-note" class="muted small"></p>
     </div>
+    <div class="card" id="w-grade-card" hidden>
+      <h3>📝 التصحيح هذا الأسبوع</h3>
+      <p id="w-grade-sum" class="strong"></p>
+      <div id="w-grade-days" class="bars" role="img" aria-label="عدد الأوراق المصحّحة في كل يوم"></div>
+      <p id="w-grade-note" class="muted small"></p>
+    </div>
+    <div class="card" id="w-school-card" hidden>
+      <h3>🏫 حصصي في المدرستين</h3>
+      <div id="w-schools"></div>
+    </div>
     <div class="card">
       <h3>⏳ ما تأخّر</h3>
       <ul id="w-late" class="simple-list"></ul>
+    </div>
+  </section>
+
+  <!-- ================= 📦 رزمة تصحيح جديدة ================= -->
+  <section data-screen="batch" hidden>
+    <div class="screen-head">
+      <button class="icon-btn" data-back aria-label="رجوع">→</button>
+      <h2 class="screen-title">📦 رزمة تصحيح جديدة</h2>
+    </div>
+    <div class="card">
+      <label class="label" for="b-title">ما الامتحان؟</label>
+      <input id="b-title" type="text" maxlength="200" placeholder="مثلًا: امتحان الحادي عشر، الفصل الأول">
+      <div id="b-quick" class="tpl-row" style="margin-top:8px"></div>
+      <div class="label">المدرسة</div>
+      <div id="b-school" class="chips"></div>
+      <div class="label">عدد الأوراق</div>
+      <div class="stepper"><button type="button" data-n="-5">−5</button><button type="button" data-n="-1">−</button>
+        <b id="b-count">20</b><button type="button" data-n="1">+</button><button type="button" data-n="5">+5</button></div>
+      <div id="b-count-chips" class="chips" style="justify-content:center;margin-top:8px"></div>
+      <div class="label">أعيدها للطلاب</div>
+      <div id="b-due" class="chips"></div>
+      <input id="b-date" type="date" class="visually-hidden" tabindex="-1" aria-hidden="true">
+      <div class="label">دقائق الورقة الواحدة</div>
+      <div class="stepper"><button type="button" data-m="-1">−</button><b id="b-min">8 د</b><button type="button" data-m="1">+</button></div>
+      <p id="b-summary" class="b-summary"></p>
+      <button id="b-save" class="btn-primary" type="button">✅ أضف الرزمة</button>
     </div>
   </section>
 
@@ -213,6 +253,10 @@
       <input id="d-title" type="text" maxlength="500" aria-label="العنوان">
       <p id="d-help" class="muted small"></p>
       <div class="label">الفئة</div><div id="d-cats" class="cats"></div>
+      <div id="d-school-row" hidden><div class="label">🏫 المدرسة</div><div id="d-school" class="chips"></div></div>
+      <div id="d-grade-row" hidden><div class="label">📝 التصحيح</div>
+        <div class="stepper"><button type="button" id="d-g-minus">−</button><b id="d-g">0 / 0</b><button type="button" id="d-g-plus">+</button></div>
+        <p id="d-g-note" class="muted small center"></p></div>
       <div class="label">الأهمية</div><div id="d-imp" class="chips"></div>
       <div class="label">المدة</div><div id="d-dur" class="chips"></div>
       <div class="label">الموعد</div>
@@ -253,16 +297,25 @@
     </div>
     <div class="card">
       <h3>🏫 جدول حصصي</h3>
-      <p class="muted small">اضغط على المربعات لتحديد حصصك في كل يوم. لن يضع السكرتير مهامًا في أوقات حصصك.</p>
+      <p class="muted small">اختر المدرسة، ثم اضغط مربعات حصصك فيها. لن يضع السكرتير مهامًا في أوقات حصصك.</p>
+      <div id="tt-schools" class="chips"></div>
+      <label class="switch-row"><span>اسم المدرسة</span><input type="text" id="tt-name" maxlength="30"></label>
       <div class="tt-wrap"><table id="tt-grid" class="tt-grid"></table></div>
+      <div class="switch-row"><span>🚗 الطريق بين المدرستين<small>يُحجز تلقائيًا عند التنقّل في نفس اليوم</small></span>
+        <div class="stepper mini"><button type="button" id="tt-tr-minus">−</button><b id="tt-travel">10 د</b><button type="button" id="tt-tr-plus">+</button></div></div>
       <details class="more">
-        <summary>⏰ أوقات الجرس (بداية ونهاية كل حصة)</summary>
+        <summary>⏰ أوقات الجرس في <span id="tt-bell-name">المدرسة</span></summary>
         <ul id="tt-periods" class="tt-periods"></ul>
         <div class="btn-row">
           <button id="tt-add" class="btn-ghost" type="button">➕ حصة</button>
           <button id="tt-remove" class="btn-ghost" type="button">➖ آخر حصة</button>
         </div>
       </details>
+    </div>
+    <div class="card">
+      <h3>📝 التصحيح</h3>
+      <div class="switch-row"><span>هدفي اليومي<small>عدد الأوراق التي أصحّحها كل يوم</small></span>
+        <div class="stepper mini"><button type="button" id="g-goal-minus">−</button><b id="g-goal">20</b><button type="button" id="g-goal-plus">+</button></div></div>
     </div>
     <div class="card">
       <h3>🕐 يومي</h3>

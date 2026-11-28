@@ -44,7 +44,7 @@ export function planDay({ tasks, events = [], settings, now = new Date(), day })
     const sm = sameDay(s, day) ? minOfDate(s) : 0;
     const em = sameDay(en, day) ? minOfDate(en) : 24 * 60;
     busy.push([sm, em]);
-    evItems.push({ kind: 'event', start: sm, end: em, title: e.title, cal: e.cal, color: e.color, icon: e.icon });
+    evItems.push({ kind: 'event', start: sm, end: em, title: e.title, cal: e.cal, color: e.color, icon: e.icon, schoolName: e.schoolName });
   }
 
   // ② المهام ذات الساعة الثابتة (لها due_time اليوم، أو حُدّد وقتها من التقويم)
@@ -67,9 +67,10 @@ export function planDay({ tasks, events = [], settings, now = new Date(), day })
   const unscheduled = [];
   for (const t of flexible) {
     const dur = t.duration_min || DEFAULT_DUR;
-    const i = free.findIndex(([s, e]) => e - s >= dur);
+    const after = t.after || 0;     // أبكر وقت مسموح (التصحيح: بعد العودة للبيت)
+    const i = free.findIndex(([s, e]) => e - Math.max(s, after) >= dur);
     if (i === -1) { unscheduled.push(t); continue; }
-    const s = free[i][0];
+    const s = Math.max(free[i][0], after);
     slots.set(t.id, { start: s, end: s + dur, fixed: false });
     free = subtract(free, s, s + dur + GAP);
   }

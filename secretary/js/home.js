@@ -7,7 +7,7 @@ import { startFromFile } from './ocr.js';
 import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back, enableSwipe, recurEditor, ask } from './ui.js';
 import { checkSlot } from './planner.js';
 import { getSettings } from './sync.js';
-import { CATS, IMPORTANCE, DURATIONS, RECUR, recurLabel, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc, toMin, fromMin, timetableEvents } from './util.js';
+import { CATS, IMPORTANCE, DURATIONS, RECUR, recurLabel, TEMPLATES, REMIND_OPTS, DEFAULT_REMIND, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc, toMin, fromMin, timetableEvents, normalizeTimetable, SCHOOL_DOTS, GRADE_MIN_DEFAULT, gradeLeft } from './util.js';
 
 /* ---------- حالة نموذج الإضافة ---------- */
 const form = {
@@ -20,18 +20,20 @@ const form = {
   remind: DEFAULT_REMIND, // التذكير قبل الموعد بالدقائق (0 = بدون)
   duration: null,        // المدة (من القوالب الجاهزة)
   recur: '',
+  school: null,          // مدرسة المهمة (فئة «المدرسة» فقط)
   source: null
 };
 const input = $('#task-input');
 
 export function setupHome() {
-  catButtons($('#cats'), form.cat, key => { form.cat = key; form.catTouched = true; pref.set('cat', key); });
+  catButtons($('#cats'), form.cat, key => { form.cat = key; form.catTouched = true; pref.set('cat', key); paintSchool(); });
+  paintSchool();
 
   // تخمين الفئة تلقائيًا من النص (ما لم تخترها بيدك)
   input.addEventListener('input', () => {
     if (form.catTouched) return;
     const g = guessCategory(input.value);
-    if (g && g !== form.cat) { form.cat = g; selectCat($('#cats'), g); }
+    if (g && g !== form.cat) { form.cat = g; selectCat($('#cats'), g); paintSchool(); }
   });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addTask(true); } });
 
@@ -151,10 +153,23 @@ async function addTask(keepFocus) {
   const remind = form.remind, duration = form.duration;
   form.remind = DEFAULT_REMIND; form.duration = null; setupRemind();
   form.cat = pref.get('cat', 'school'); selectCat($('#cats'), form.cat);
+  const school = cat === 'school' ? form.school : null; form.school = null; paintSchool();
   if (keepFocus) input.focus(); else input.blur();
 
-  await store.add({ title, category: cat, due_date, due_time, source, recur, remind_min: remind, duration_min: duration });
+  await store.add({ title, category: cat, school, due_date, due_time, source, recur, remind_min: remind, duration_min: duration });
   toast(`✓ أُضيفت إلى ${CATS[cat].icon} ${CATS[cat].label}${due_time ? ' · ⏰ ' + due_time : ''}${recur ? ' 🔄' : ''}`);
+}
+
+/* ---------- 🏫 اختيار المدرسة (يظهر مع فئة «المدرسة» فقط) ---------- */
+async function schoolOpts() {
+  const tt = normalizeTimetable((await getSettings()).timetable);
+  return [['', 'بدون'], ...tt.schools.map(x => [x.id, `${SCHOOL_DOTS[x.id]} ${esc(x.name)}`])];
+}
+async function paintSchool() {
+  const row = $('#school-row');
+  row.hidden = form.cat !== 'school';
+  if (row.hidden) return;
+  chips($('#school-chips'), await schoolOpts(), form.school ?? '', v => { form.school = v || null; });
 }
 
 /* ---------- الميكروفون ---------- */
@@ -203,7 +218,7 @@ export async function renderList() {
       <button class="act done" data-act="done" aria-label="تمّت">✓</button>
       <button class="body" data-act="open">
         <div class="title">${esc(t.title)}</div>
-        <div class="meta">${c.icon} ${c.label}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.due_time ? '' : ' · <span class="no-time">⏱️ بدون وقت</span>'}${t.recur ? ' · 🔄 ' + recurLabel(t.recur) : ''}${steps}${planned}</div>
+        <div class="meta">${c.icon} ${c.label}${t.school ? ' ' + SCHOOL_DOTS[t.school] : ''}${t.grade_total ? ` · 📝 ${t.grade_done || 0}/${t.grade_total}` : ''}${due ? ' · ' + (late ? `<span class="late">متأخرة · ${due}</span>` : due) : ''}${t.due_time ? '' : ' · <span class="no-time">⏱️ بدون وقت</span>'}${t.recur ? ' · 🔄 ' + recurLabel(t.recur) : ''}${steps}${planned}</div>
       </button>
       <button class="act" data-act="del" aria-label="حذف">🗑️</button>
     </li>`;
@@ -232,7 +247,7 @@ async function onListClick(e) {
    ===================================================================== */
 let detailId = null;
 onShow('details', id => { detailId = id; renderDetails(); });
-window.addEventListener('sek:tasks-remote', () => { if (!$('[data-screen="details"]').hidden) renderDetails(); });
+for (const ev of ['sek:tasks-remote', 'sek:tasks']) window.addEventListener(ev, () => { if (!$('[data-screen="details"]').hidden) renderDetails(); });
 
 async function renderDetails() {
   const t = await store.get(detailId);
@@ -243,7 +258,17 @@ async function renderDetails() {
   title.value = t.title;
   title.onchange = () => { const v = title.value.trim(); if (v) save({ title: v.slice(0, 500) }); };
 
-  catButtons($('#d-cats'), t.category, v => save({ category: v }));
+  catButtons($('#d-cats'), t.category, v => save({ category: v, ...(v !== 'school' ? { school: null } : {}) }));
+  $('#d-school-row').hidden = t.category !== 'school';
+  if (t.category === 'school') chips($('#d-school'), await schoolOpts(), t.school ?? '', v => save({ school: v || null }));
+  // 📝 رزمة تصحيح: كم ورقة صحّحت من الكل
+  $('#d-grade-row').hidden = !t.grade_total;
+  if (t.grade_total) {
+    $('#d-g').textContent = `${t.grade_done || 0} / ${t.grade_total}`;
+    $('#d-g-note').textContent = `⏱️ ${t.grade_min || GRADE_MIN_DEFAULT} دقائق للورقة · بقي ${gradeLeft(t)}`;
+    $('#d-g-minus').onclick = () => store.gradeStep(t.id, -1);
+    $('#d-g-plus').onclick = () => store.gradeStep(t.id, +1);
+  }
   chips($('#d-imp'), [['', '—'], ...Object.entries(IMPORTANCE).map(([k, v]) => [k, `${v.icon} ${k}`])], t.importance ?? '', v => save({ importance: v ? +v : null }));
   chips($('#d-dur'), [['', '—'], ...DURATIONS], t.duration_min ?? '', v => save({ duration_min: v ? +v : null }));
   recurEditor($('#d-recur'), t.recur ?? '', v => save({ recur: v || null, ...(v && !t.due_date ? { due_date: todayStr() } : {}) }));

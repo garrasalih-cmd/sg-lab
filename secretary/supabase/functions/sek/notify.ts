@@ -72,9 +72,12 @@ export async function runNotifications(gcalUsers: Set<string>) {
         const { data: today } = await admin.from('tasks').select('status')
           .eq('user_id', uid).eq('deleted', false).eq('plan_date', lp.date);
         const y = today?.length || 0, x = (today || []).filter((t: Sub) => t.status === 'done').length;
+        // 📝 التصحيح: كم ورقة اليوم مقابل الهدف
+        const graded = Number((s as any).grade_log?.[lp.date] || 0), goal = Number((s as any).grading_goal || 0);
+        const g = graded ? ` 📝 صحّحت ${graded}${goal ? ` من ${goal}` : ''} ورقة${goal && graded >= goal ? ' 👏' : ''}.` : '';
         await pushToUser(uid, {
           title: '🌙 مراجعة المساء',
-          body: y ? `أنجزتَ ${x} من ${y} اليوم. دقيقة واحدة لترحيل الباقي؟` : 'كيف كان يومك؟ اضغط للمراجعة',
+          body: (y ? `أنجزتَ ${x} من ${y} اليوم.` : 'كيف كان يومك؟') + g + (y ? ' دقيقة واحدة لترحيل الباقي؟' : ' اضغط للمراجعة'),
           url: './?evening=1', tag: 'evening'
         });
       }

@@ -3,7 +3,8 @@
    ===================================================================== */
 import * as store from './store.js';
 import { $, show, onShow, toast, vibrate, goHome } from './ui.js';
-import { CATS, todayStr, addDays, weekdayShort, fmtDuration, esc, isOverdue, fmtDue } from './util.js';
+import { getSettings } from './sync.js';
+import { CATS, normalizeTimetable, timetableEvents, SCHOOL_DOTS, SCHOOL_COLORS, GRADE_MIN_DEFAULT, todayStr, addDays, weekdayShort, fmtDuration, esc, isOverdue, fmtDue } from './util.js';
 
 /* =====================================================================
    🌙 مراجعة المساء: «أنجزتُ X من Y» + ترحيل غير المنجز بأزرار
@@ -105,6 +106,40 @@ onShow('weekly', async () => {
       <div class="hbar-track"><div class="hbar" style="width:${v / vmax * 100}%; background:var(--c-${k})"></div></div>
       <span class="hbar-val">${useMins ? fmtDuration(v) || '0' : v}</span></div>`).join('');
   $('#w-cats-note').textContent = useMins ? 'حسب دقائق التركيز أو المدة المقدّرة للمهام المنجزة' : 'عدد المهام المنجزة (حدّد المدد في وضع الصباح لترى الوقت)';
+
+  // ④ التصحيح: أوراق كل يوم من سجل التصحيح
+  const st = await getSettings(), log = st.grade_log || {}, goal = st.grading_goal || 0;
+  const papers = days.map(d => log[d] || 0), totalP = papers.reduce((a, b) => a + b, 0);
+  $('#w-grade-card').hidden = !totalP;
+  if (totalP) {
+    const pmax = Math.max(1, goal, ...papers);
+    const batches = list.filter(t => t.grade_total && !t.deleted);
+    const avgMin = batches.length ? Math.round(batches.reduce((n, t) => n + (t.grade_min || GRADE_MIN_DEFAULT), 0) / batches.length) : GRADE_MIN_DEFAULT;
+    const hit = goal ? papers.filter(p => p >= goal).length : 0;
+    const active = papers.filter(Boolean).length;
+    $('#w-grade-sum').textContent = `صحّحت ${totalP} ورقة في ${active} ${active === 1 ? 'يوم' : 'أيام'} · بمعدل ${Math.round(totalP / active)} في يوم التصحيح`;
+    $('#w-grade-days').innerHTML = days.map((d, i) => `<div class="bar-col" title="${papers[i]} أوراق">
+      <span class="bar-val">${papers[i] || ''}</span>
+      <div class="bar ${goal && papers[i] >= goal ? 'goal' : ''}" style="height:${Math.max(papers[i] ? 8 : 2, papers[i] / pmax * 100)}%"></div>
+      <span class="bar-lbl ${d === t0 ? 'today' : ''}">${weekdayShort(d)}</span></div>`).join('');
+    $('#w-grade-note').textContent = `⏱️ حوالي ${avgMin} دقائق للورقة (≈ ${fmtDuration(totalP * avgMin)} هذا الأسبوع)` + (goal ? ` · وصلت هدف ${goal} في ${hit} من 7 أيام` : '');
+  }
+
+  // ⑤ الحصص في كل مدرسة (حسب جدولك الأسبوعي)
+  const tt = normalizeTimetable(st.timetable);
+  const per = Object.fromEntries(tt.schools.map(x => [x.id, { n: 0, min: 0 }]));
+  let travel = 0;
+  for (const d of days) for (const e of timetableEvents(tt, d)) {
+    const m = (new Date(e.end) - new Date(e.start)) / 60000;
+    if (e.travel) travel += m; else if (per[e.school]) { per[e.school].n++; per[e.school].min += m; }
+  }
+  const smax = Math.max(1, ...Object.values(per).map(v => v.min));
+  $('#w-school-card').hidden = !Object.values(per).some(v => v.n);
+  $('#w-schools').innerHTML = tt.schools.map(x => `<div class="hbar-row">
+      <span class="hbar-lbl">${SCHOOL_DOTS[x.id]} ${esc(x.name)}</span>
+      <div class="hbar-track"><div class="hbar" style="width:${per[x.id].min / smax * 100}%; background:${SCHOOL_COLORS[x.id]}"></div></div>
+      <span class="hbar-val">${per[x.id].n} حصة</span></div>`).join('')
+    + (travel ? `<p class="muted small">🚗 الطريق بين المدرستين: ${fmtDuration(travel)} في الأسبوع</p>` : '');
 
   // ③ ما تأخّر: متأخرة عن موعدها، أو أُجّلت مرتين فأكثر
   const late = list.filter(t => t.status !== 'done' && !t.parent_id && (isOverdue(t.due_date) || (t.postpone_count || 0) >= 2))

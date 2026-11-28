@@ -6,7 +6,8 @@
      3) يُطلق حدث 'sek:tasks' لتحديث الشاشات وطلب مزامنة
    ===================================================================== */
 import { getAllTasks, getTask, putTask } from './db.js';
-import { todayStr, addDays, addMonths, localISO, parseDays, weekdayOf, firstMatchingDay } from './util.js';
+import { todayStr, addDays, addMonths, localISO, parseDays, weekdayOf, firstMatchingDay, GRADE_MIN_DEFAULT } from './util.js';
+import { getSettings, saveSettings } from './sync.js';
 
 const nowISO = () => new Date().toISOString();
 const changed = () => window.dispatchEvent(new Event('sek:tasks'));
@@ -46,7 +47,7 @@ export async function morningQueue() {
   const list = await all();
   const parents = parentIds(list);
   return list.filter(t =>
-    t.status !== 'done' && !parents.has(t.id) &&
+    t.status !== 'done' && !parents.has(t.id) && !t.grade_total &&   // رزم التصحيح تُرتَّب تلقائيًا
     !(t.status === 'today' && t.plan_date && t.plan_date >= t0) &&
     (t.plan_date ? t.plan_date <= t0 : (!t.due_date || t.due_date <= t0))
   ).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999') || a.created_at.localeCompare(b.created_at));
@@ -60,7 +61,8 @@ export async function planTasks(day = todayStr()) {
   const open = [], done = [];
   for (const t of list) {
     if (parents.has(t.id)) continue;
-    const planned = t.status === 'today' && t.plan_date === day;
+    // رزمة تصحيح لم تنتهِ ⇒ تظهر كل يوم حتى تكتمل
+    const planned = (t.status === 'today' && t.plan_date === day) || (t.grade_total > 0 && t.status !== 'done');
     const dueToday = t.status === 'inbox' && t.due_date === day && (!t.plan_date || t.plan_date <= day);
     if (t.status === 'done') {
       if (t.plan_date === day || (t.completed_at && todayStr(new Date(t.completed_at)) === day)) done.push(t);
@@ -87,6 +89,10 @@ export async function add(fields) {
     importance: fields.importance ?? null,
     duration_min: fields.duration_min ?? null,
     remind_min: fields.remind_min ?? null,   // التذكير قبل الموعد بالدقائق (null = 15، 0 = بدون)
+    school: fields.school || null,            // مدرسة أ / ب
+    grade_total: fields.grade_total ?? null,  // 📝 رزمة تصحيح: عدد الأوراق
+    grade_done: 0,
+    grade_min: fields.grade_min ?? null,      // دقائق الورقة
     status: fields.status || 'inbox',
     plan_date: fields.plan_date || null,
     postpone_count: 0,
@@ -222,4 +228,37 @@ export async function reorder(ids) {
 export async function doneTodayCount() {
   const t0 = todayStr();
   return (await all()).filter(t => t.status === 'done' && t.completed_at && todayStr(new Date(t.completed_at)) === t0).length;
+}
+
+
+/* =====================================================================
+   📝 عدّاد التصحيح: +1 بعد كل ورقة (أو −1 للتصحيح)
+   يحدّث الرزمة، ويسجّل عدد أوراق اليوم (للهدف اليومي والإحصاء)، ويُنهي الرزمة عند اكتمالها
+   ===================================================================== */
+export async function gradeStep(id, delta = 1) {
+  const t = await getTask(id);
+  if (!t?.grade_total) return null;
+  const done = Math.max(0, Math.min(t.grade_total, (t.grade_done || 0) + delta));
+  const real = done - (t.grade_done || 0);
+  if (!real) return t;
+  await update(id, { grade_done: done }, { silent: true });
+  // سجل اليوم: {"2026-11-28": 12} (نحتفظ بآخر 60 يومًا)
+  const s = await getSettings(), day = todayStr();
+  const log = { ...(s.grade_log || {}) };
+  log[day] = Math.max(0, (log[day] || 0) + real);
+  for (const k of Object.keys(log)) if (k < addDays(day, -60)) delete log[k];
+  await saveSettings({ grade_log: log });
+  if (done >= t.grade_total) await finish(id);          // ✅ اكتملت الرزمة
+  changed();
+  return { ...t, grade_done: done };
+}
+export const gradedToday = async () => ((await getSettings()).grade_log || {})[todayStr()] || 0;
+
+// تعلّم السرعة الحقيقية من جلسات التركيز: متوسط متحرك لدقائق الورقة
+export async function learnGradeSpeed(id, minutes, papers) {
+  if (!(papers > 0) || !(minutes > 0)) return;
+  const t = await getTask(id); if (!t) return;
+  const old = t.grade_min || GRADE_MIN_DEFAULT;
+  const now = Math.min(120, Math.max(1, minutes / papers));
+  await update(id, { grade_min: Math.round(old * 0.6 + now * 0.4) }, { silent: true });
 }

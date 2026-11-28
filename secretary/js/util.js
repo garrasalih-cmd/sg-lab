@@ -107,34 +107,106 @@ export const REMIND_OPTS = [[0, '🔕 بدون'], [5, '5 د'], [15, '15 د'], [3
 export const DEFAULT_REMIND = 15;
 
 /* =====================================================================
-   جدول الحصص 🏫 (كل أيام الأسبوع)
-   periods: أوقات الجرس  ·  days: لكل يوم (0=الأحد … 6=السبت) أرقام حصصك
+   جدول الحصص 🏫 لمدرستين (كل أيام الأسبوع)
+   schools: لكل مدرسة اسمها وأوقات جرسها · days: لكل يوم رموز الحصص مثل "a1" (مدرسة أ، حصة 1) أو "b3"
+   travel_min: وقت الطريق بين المدرستين (يُحجز تلقائيًا عند الانتقال في نفس اليوم)
    ===================================================================== */
 export const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 export const DAY_SHORT = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+export const SCHOOL_COLORS = { a: '#4f8ff0', b: '#9a6fe0' };
+export const SCHOOL_DOTS = { a: '🔵', b: '🟣' };
+const BELL = [
+  { start: '08:00', end: '08:45' }, { start: '08:45', end: '09:30' },
+  { start: '09:45', end: '10:30' }, { start: '10:30', end: '11:15' },
+  { start: '11:30', end: '12:15' }, { start: '12:15', end: '13:00' },
+  { start: '13:15', end: '14:00' }, { start: '14:00', end: '14:45' }
+];
+const emptyDays = () => ({ 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
 export const DEFAULT_TIMETABLE = {
-  periods: [
-    { start: '08:00', end: '08:45' }, { start: '08:45', end: '09:30' },
-    { start: '09:45', end: '10:30' }, { start: '10:30', end: '11:15' },
-    { start: '11:30', end: '12:15' }, { start: '12:15', end: '13:00' },
-    { start: '13:15', end: '14:00' }, { start: '14:00', end: '14:45' }
-  ],
-  days: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }
+  v: 2, travel_min: 10,
+  schools: [{ id: 'a', name: 'مدرسة أ', periods: BELL }, { id: 'b', name: 'مدرسة ب', periods: BELL }],
+  days: emptyDays()
 };
 
-// حصص يوم معيّن ⇒ «أحداث» مشغولة للخطة (مثل أحداث التقويم)
+// يحوّل أي شكل قديم (مدرسة واحدة) إلى الشكل الجديد، ويكمل الناقص
+export function normalizeTimetable(tt) {
+  const clone = x => JSON.parse(JSON.stringify(x));
+  if (!tt) return clone(DEFAULT_TIMETABLE);
+  if (tt.v === 2) {
+    const out = clone(tt);
+    out.travel_min = out.travel_min ?? 10;
+    for (const def of DEFAULT_TIMETABLE.schools) if (!out.schools.find(s => s.id === def.id)) out.schools.push(clone(def));
+    for (let d = 0; d < 7; d++) out.days[d] = out.days?.[d] || [];
+    return out;
+  }
+  const out = clone(DEFAULT_TIMETABLE);                 // الشكل القديم: periods + days:{d:[1,2]}
+  if (tt.periods?.length) out.schools[0].periods = clone(tt.periods);
+  for (let d = 0; d < 7; d++) out.days[d] = (tt.days?.[d] || []).map(n => 'a' + n);
+  return out;
+}
+export const schoolName = (tt, id) => normalizeTimetable(tt).schools.find(s => s.id === id)?.name || '';
+
+// حصص اليوم مرتّبة: [{sid, n, school, s, e}]
+function dayClasses(tt, day) {
+  return (tt.days[weekdayOf(day)] || []).map(code => {
+    const sid = code[0], n = +code.slice(1);
+    const school = tt.schools.find(x => x.id === sid);
+    const p = school?.periods?.[n - 1];
+    return p?.start && p?.end ? { sid, n, school, s: toMin(p.start), e: toMin(p.end) } : null;
+  }).filter(Boolean).sort((a, b) => a.s - b.s);
+}
+
+// حصص يوم معيّن + أوقات التنقّل ⇒ «أحداث» مشغولة للخطة
 export function timetableEvents(timetable, day) {
-  if (!timetable?.periods?.length) return [];
-  const [y, m, d] = day.split('-').map(Number);
-  const wd = new Date(y, m - 1, d).getDay();
-  const mine = timetable.days?.[wd] || [];
-  return mine
-    .map(n => ({ n, p: timetable.periods[n - 1] }))
-    .filter(x => x.p?.start && x.p?.end)
-    .map(({ n, p }) => ({
-      title: `حصة ${n}`, icon: '🏫', cal: 'جدول الحصص',
-      start: `${day}T${p.start}:00`, end: `${day}T${p.end}:00`, allDay: false
-    }));
+  const tt = normalizeTimetable(timetable);
+  const list = dayClasses(tt, day);
+  const at = m => `${day}T${fromMin(m)}:00`;
+  const ev = list.map(x => ({
+    title: `حصة ${x.n}`, icon: '🏫', school: x.sid, schoolName: x.school.name, color: SCHOOL_COLORS[x.sid],
+    cal: x.school.name, start: at(x.s), end: at(x.e), allDay: false
+  }));
+  // 🚗 بين حصتين متتاليتين من مدرستين مختلفتين: نحجز وقت الطريق قبل الحصة الثانية
+  for (let i = 1; i < list.length; i++) {
+    const prev = list[i - 1], cur = list[i];
+    if (prev.sid === cur.sid || !(tt.travel_min > 0)) continue;
+    const start = Math.max(prev.e, cur.s - tt.travel_min);
+    const tight = cur.s - prev.e < tt.travel_min;
+    ev.push({ title: `تنقّل إلى ${cur.school.name}${tight ? ' (⚠️ الوقت ضيّق)' : ''}`, icon: '🚗', travel: true,
+      start: at(start), end: at(cur.s), allDay: false });
+  }
+  return ev.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+// «أين أنا اليوم؟»: المدارس بالترتيب مع عدد الحصص [{id, name, count}]
+export function daySchools(timetable, day) {
+  const tt = normalizeTimetable(timetable);
+  const out = [];
+  for (const x of dayClasses(tt, day)) {
+    const last = out.at(-1);
+    if (last?.id === x.sid) last.count++; else out.push({ id: x.sid, name: x.school.name, count: 1 });
+  }
+  return out;
+}
+// نهاية يوم المدرسة (آخر حصة) + الطريق ⇒ من متى أنت في البيت (بالدقائق)، أو null إن لا حصص
+export function homeFrom(timetable, day) {
+  const tt = normalizeTimetable(timetable);
+  const list = dayClasses(tt, day);
+  return list.length ? Math.max(...list.map(x => x.e)) + (tt.travel_min || 0) : null;
+}
+
+/* =====================================================================
+   📝 رزم التصحيح
+   ===================================================================== */
+export const GRADE_MIN_DEFAULT = 8;           // دقائق الورقة الافتراضية
+export const GRADING_GOAL_DEFAULT = 20;       // الهدف اليومي
+const daysBetween = (a, b) => Math.round((Date.parse(b + 'T12:00:00') - Date.parse(a + 'T12:00:00')) / 864e5);
+export const gradeLeft = t => Math.max(0, (t.grade_total || 0) - (t.grade_done || 0));
+// كم ورقة يجب تصحيحها اليوم حتى تُنهي قبل يوم التسليم
+export function gradingQuota(t, day = todayStr()) {
+  const left = gradeLeft(t);
+  if (!left) return 0;
+  if (!t.due_date || t.due_date <= day) return left;
+  return Math.ceil(left / Math.max(1, daysBetween(day, t.due_date)));
 }
 
 /* =====================================================================

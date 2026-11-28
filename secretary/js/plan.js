@@ -10,7 +10,8 @@ import { planDay, findConflicts } from './planner.js';
 import { eventsFor, gcal } from './calendar.js';
 import { getSettings } from './sync.js';
 import { $, show, onShow, toast, vibrate, enableSwipe } from './ui.js';
-import { CATS, IMPORTANCE, todayStr, fromMin, fmtRange, localISO, fmtDuration, esc, longToday, timetableEvents } from './util.js';
+import { CATS, IMPORTANCE, todayStr, fromMin, fmtRange, localISO, fmtDuration, esc, longToday, timetableEvents, fmtDue,
+  daySchools, homeFrom, gradingQuota, GRADE_MIN_DEFAULT, SCHOOL_DOTS } from './util.js';
 import * as focus from './focus.js';
 import { openAdd } from './home.js';
 
@@ -24,7 +25,14 @@ async function render(fetchEvents, arg) {
   const day = todayStr();
   $('#p-date').textContent = longToday();
   const settings = await getSettings();
-  const { open, done } = await store.planTasks(day);
+  const { open: raw, done } = await store.planTasks(day);
+  // 📝 رزمة تصحيح ⇒ مهمة مدتها (أوراق اليوم × دقائق الورقة)، وتُوضع بعد عودتك للبيت
+  const home = homeFrom(settings.timetable, day);
+  const open = raw.map(t => {
+    if (!t.grade_total) return t;
+    const q = gradingQuota(t, day);
+    return { ...t, _quota: q, duration_min: Math.max(5, q * (t.grade_min || GRADE_MIN_DEFAULT)), after: home ?? 0 };
+  });
   // نعرض الأحداث المحفوظة فورًا، ثم نحدّثها من الإنترنت
   // 🏫 حصص اليوم من جدولك = أوقات مشغولة لا توضع فيها مهام
   const classes = timetableEvents(settings.timetable, day);
@@ -42,6 +50,7 @@ function draw({ open, done, events, settings, day }) {
   const plan = planDay({ tasks: open, events, settings, day });
   last = { plan, day };
   drawClasses(events, settings, day);
+  drawGrading(open, settings, day);
   // ⚠️ التداخل: مهام بساعة ثابتة تتقاطع مع حصة أو مع مهمة أخرى
   const conflicts = findConflicts({ tasks: open, events, day });
   const cb = $('#p-conflicts');
@@ -60,6 +69,21 @@ function draw({ open, done, events, settings, day }) {
       : slot.fixed ? `📌 ${fmtRange(slot.start, slot.end)}`
       : `⏱️ بدون وقت · مقترح ${fromMin(slot.start)}`;
     const imp = t.importance ? IMPORTANCE[t.importance].icon : '';
+    if (t.grade_total) {
+      const pct = Math.round((t.grade_done || 0) / t.grade_total * 100);
+      return `<li class="plan-item grading ${i < 3 ? 'top' : ''} ${i === 3 ? 'first-rest' : ''}" data-id="${t.id}" style="--cat:var(--c-school)">
+        <span class="handle" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>
+        <button class="act plus" data-act="g1" aria-label="صحّحت ورقة">+1</button>
+        <div class="body" data-act="open">
+          <div class="title">${i < 3 ? `<span class="star">⭐${i + 1}</span> ` : ''}📝 ${esc(t.title)}</div>
+          <div class="meta">اليوم <b>${t._quota}</b> ${t._quota > 2 && t._quota < 11 ? 'أوراق' : 'ورقة'} · <span class="${slot ? '' : 'late'}">${slot ? fromMin(slot.start) : '⚠️ لا فراغ'}</span> · ${fmtDuration(t.duration_min)}${t.due_date ? ' · التسليم ' + fmtDue(t.due_date) : ''}</div>
+          <div class="gbar"><div style="width:${pct}%"></div></div>
+          <div class="meta">${t.grade_done || 0}/${t.grade_total} ✓ · بقي ${t.grade_total - (t.grade_done || 0)}</div>
+        </div>
+        <button class="act" data-act="focus" aria-label="جلسة تصحيح مركّزة">▶️</button>
+        <button class="act" data-act="del" aria-label="حذف">🗑️</button>
+      </li>`;
+    }
     return `<li class="plan-item ${i < 3 ? 'top' : ''} ${i === 3 ? 'first-rest' : ''}" data-id="${t.id}" style="--cat:var(--c-${t.category})">
       <span class="handle" aria-label="اسحب لتغيير الترتيب">⋮⋮</span>
       <button class="act done" data-act="done" aria-label="تمّت">✓</button>
@@ -81,7 +105,7 @@ function draw({ open, done, events, settings, day }) {
     if (!markerDone && !it.allDay && it.start >= nowMin) { marker = `<li class="now-line">الآن ${fromMin(nowMin)}</li>`; markerDone = true; }
     if (it.kind === 'event') {
       return marker + `<li class="tl event">${it.allDay ? '<span class="tl-time">طوال اليوم</span>' : `<span class="tl-time">${fromMin(it.start)}</span>`}
-        <span>${it.icon || '📅'} ${esc(it.title)}</span></li>`;
+        <span>${it.icon || '📅'} ${esc(it.title)}${it.schoolName ? ' · ' + esc(it.schoolName) : ''}</span></li>`;
     }
     return marker + `<li class="tl task" style="--cat:var(--c-${it.task.category})"><span class="tl-time">${fromMin(it.start)}</span>
       <span>${CATS[it.task.category]?.icon || ''} ${esc(it.task.title)}</span></li>`;
@@ -133,6 +157,10 @@ $('#p-list').addEventListener('click', async e => {
     await new Promise(r => setTimeout(r, 200));
     await store.complete(id);
     toast('أحسنت! ✓', { label: 'تراجع', run: () => store.reopen(id) });
+  } else if (b.dataset.act === 'g1') {
+    const t = await store.gradeStep(id, 1);       // 📝 ورقة أخرى
+    vibrate(15);
+    if (t) toast(t.grade_done >= t.grade_total ? '🎉 اكتملت الرزمة!' : `📝 ${t.grade_done}/${t.grade_total}`, { label: 'تراجع', run: () => store.gradeStep(id, -1) });
   } else if (b.dataset.act === 'focus') {
     focus.start(id);
   } else if (b.dataset.act === 'open') {
@@ -213,6 +241,10 @@ export async function speakSummary() {
   const timed = events.filter(e => !e.allDay);
 
   const parts = [`صباح الخير${settings.name ? ' يا ' + settings.name : ''}.`];
+  const where = daySchools(settings.timetable, day);
+  if (where.length) parts.push('اليوم في ' + where.map(x => x.name).join(' ثم ') + '.');
+  const quota = open.filter(t => t.grade_total).reduce((n, t) => n + gradingQuota(t, day), 0);
+  if (quota) parts.push(`وعليك تصحيح ${quota} ورقة في البيت.`);
   parts.push(open.length ? `لديك اليوم ${count(open.length, 'مهمة واحدة', 'مهمتان', 'مهام', 'مهمة')}` : 'لا مهام لليوم');
   if (timed.length) parts.push(`و ${count(timed.length, 'موعد واحد', 'موعدان', 'مواعيد', 'موعدًا')} في التقويم، أولها ${timed[0].title} الساعة ${new Date(timed[0].start).toTimeString().slice(0, 5)}`);
   parts[parts.length - 1] += '.';
@@ -254,10 +286,28 @@ function drawClasses(events, settings, day) {
   const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes(), isToday = day === todayStr();
   const mins = iso => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
   box.hidden = false;
+  // «أين أنا اليوم؟» مثل: 🔵 مدرسة أ (2) ← 🟣 مدرسة ب (3)
+  const where = daySchools(settings.timetable, day).map(x => `${SCHOOL_DOTS[x.id]} ${esc(x.name)} (${x.count})`).join(' ← ');
   box.innerHTML = `<h3>🏫 حصص اليوم <span class="badge">${classes.length}</span></h3>
+    <p class="where">${where}</p>
     <div class="class-chips">${classes.map(c => {
       const s = mins(c.start), e = mins(c.end);
       const state = !isToday ? '' : nowMin >= e ? 'past' : nowMin >= s ? 'now' : '';
-      return `<div class="class-chip ${state}"><b>${esc(c.title)}</b><span>${fmtRange(s, e)}</span>${state === 'now' ? '<em>الآن</em>' : ''}</div>`;
+      return `<div class="class-chip ${state}" style="--sc:${c.color || 'var(--c-school)'}"><b>${SCHOOL_DOTS[c.school] || ''} ${esc(c.title)}</b><span>${fmtRange(s, e)}</span>${state === 'now' ? '<em>الآن</em>' : ''}</div>`;
     }).join('')}</div>`;
+}
+
+
+/* ---------- 📝 بطاقة التصحيح: الهدف اليومي ---------- */
+function drawGrading(open, settings, day) {
+  const box = $('#p-grading');
+  const goal = settings.grading_goal ?? 20;
+  const doneN = settings.grade_log?.[day] || 0;
+  const batches = open.filter(t => t.grade_total);
+  const pct = goal ? Math.min(100, Math.round(doneN / goal * 100)) : 0;
+  box.innerHTML = `<div class="g-head"><h3>📝 تصحيح اليوم</h3><b class="g-count">${doneN}${goal ? ' / ' + goal : ''}</b></div>
+    ${goal ? `<div class="gbar big"><div style="width:${pct}%"></div></div>` : ''}
+    <p class="muted small">${goal && doneN >= goal ? '🎉 وصلتَ لهدف اليوم!' : batches.length ? (goal ? `بقي ${goal - doneN} لهدف اليوم · اضغط +1 بعد كل ورقة` : 'اضغط +1 بعد كل ورقة') : 'لا رزم تصحيح حاليًا'}</p>
+    <button id="p-new-batch" class="btn-ghost" type="button">📦 رزمة تصحيح جديدة</button>`;
+  $('#p-new-batch').onclick = () => show('batch');
 }
