@@ -90,7 +90,10 @@ alter table public.app_config enable row level security;
 
 -- ---------- المؤقّت (pg_cron): كل 5 دقائق يستدعي الدالة cron ----------
 create extension if not exists pg_cron;
-create extension if not exists pg_net;
+create extension if not exists pg_net schema extensions;   -- في مخطط extensions وليس public (توصية Supabase)
+
+-- الجداول الخاصة: لا صلاحية للتطبيق عليها إطلاقًا (حماية إضافية فوق RLS)
+revoke all on table public.app_config, public.google_tokens, public.notif_log, public.oauth_states from anon, authenticated;
 
 -- ---------- بعد نشر دالة sek: المؤقّت كل 5 دقائق ----------
 -- (كلمة سر المؤقّت محفوظة في Vault باسم sek_cron_secret وفي app_config)
