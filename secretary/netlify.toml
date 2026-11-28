@@ -1,7 +1,6 @@
 # إعدادات Netlify (لا يوجد build: الملفات تُنشر كما هي)
-# في Netlify اجعل Base directory = secretary
-[build]
-  publish = "."
+# في لوحة Netlify: Base directory = secretary ، Publish directory = .
+# (لا نحدد publish هنا حتى لا يتعارض مع إعداد اللوحة)
 
 # المشاركة من واتساب تفتح /share-target ⇒ نعرض index.html
 [[redirects]]
