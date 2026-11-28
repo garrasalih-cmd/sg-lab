@@ -162,7 +162,7 @@ export function timetableEvents(timetable, day) {
   const list = dayClasses(tt, day);
   const at = m => `${day}T${fromMin(m)}:00`;
   const ev = list.map(x => ({
-    title: `حصة ${x.n}`, icon: '🏫', school: x.sid, schoolName: x.school.name, color: SCHOOL_COLORS[x.sid],
+    title: `حصة ${x.n}`, icon: '🏫', school: x.sid, code: x.sid + x.n, schoolName: x.school.name, color: SCHOOL_COLORS[x.sid],
     cal: x.school.name, start: at(x.s), end: at(x.e), allDay: false
   }));
   // 🚗 بين حصتين متتاليتين من مدرستين مختلفتين: نحجز وقت الطريق قبل الحصة الثانية
@@ -207,6 +207,13 @@ export function gradingQuota(t, day = todayStr()) {
   if (!left) return 0;
   if (!t.due_date || t.due_date <= day) return left;
   return Math.ceil(left / Math.max(1, daysBetween(day, t.due_date)));
+}
+
+// حصة اليوم من رزمة: نثبّتها من بداية اليوم (لا تصغر كلما صحّحت)
+// doneToday = ما صحّحته اليوم من هذه الرزمة ⇒ {quota: حصة اليوم، doneToday، rem: الباقي منها اليوم}
+export function gradingToday(t, doneToday = 0, day = todayStr()) {
+  const quota = gradingQuota({ ...t, grade_done: Math.max(0, (t.grade_done || 0) - doneToday) }, day);
+  return { quota, doneToday, rem: Math.max(0, quota - doneToday) };
 }
 
 /* =====================================================================

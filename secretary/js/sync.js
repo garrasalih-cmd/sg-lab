@@ -74,7 +74,9 @@ export const DEFAULT_SETTINGS = {
   push_morning: true, push_evening: true, push_reminders: true,
   timetable: DEFAULT_TIMETABLE,   // جدول الحصص 🏫 (مدرستان)
   grading_goal: 20,              // 📝 الهدف اليومي للتصحيح
-  grade_log: {}                  // أوراق كل يوم
+  grade_log: {},                 // أوراق كل يوم
+  grade_by: {},                  // أوراق كل رزمة في كل يوم {يوم: {رقم الرزمة: عدد}}
+  class_done: {}                 // الحصص المنجزة {يوم: ['a1','b4']}
 };
 let settingsCache = null;
 export async function getSettings() {
@@ -88,7 +90,7 @@ export async function saveSettings(patch) {
   window.dispatchEvent(new Event('sek:settings'));
   schedule();
 }
-const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders', 'timetable', 'grading_goal', 'grade_log'];
+const SETTING_COLS = ['name', 'tz', 'day_start', 'day_end', 'morning_time', 'evening_time', 'push_morning', 'push_evening', 'push_reminders', 'timetable', 'grading_goal', 'grade_log', 'grade_by', 'class_done'];
 async function syncSettings(c, uid) {
   if (await kvGet('settings_dirty')) {
     const s = await getSettings();

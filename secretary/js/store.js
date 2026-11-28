@@ -246,11 +246,27 @@ export async function gradeStep(id, delta = 1) {
   const s = await getSettings(), day = todayStr();
   const log = { ...(s.grade_log || {}) };
   log[day] = Math.max(0, (log[day] || 0) + real);
-  for (const k of Object.keys(log)) if (k < addDays(day, -60)) delete log[k];
-  await saveSettings({ grade_log: log });
+  // وكم من هذه الرزمة بالذات (لنعرف هل أنهيت حصة اليوم منها)
+  const by = { ...(s.grade_by || {}) };
+  by[day] = { ...(by[day] || {}) };
+  by[day][id] = Math.max(0, (by[day][id] || 0) + real);
+  for (const o of [log, by]) for (const k of Object.keys(o)) if (k < addDays(day, -60)) delete o[k];
+  await saveSettings({ grade_log: log, grade_by: by });
   if (done >= t.grade_total) await finish(id);          // ✅ اكتملت الرزمة
   changed();
   return { ...t, grade_done: done };
+}
+// ✓ حصة منجزة اليوم (أو إلغاء الإشارة)
+export async function toggleClass(code, day = todayStr()) {
+  const s = await getSettings();
+  const all = { ...(s.class_done || {}) };
+  const list = new Set(all[day] || []);
+  list.has(code) ? list.delete(code) : list.add(code);
+  all[day] = [...list];
+  for (const k of Object.keys(all)) if (k < addDays(day, -60)) delete all[k];
+  await saveSettings({ class_done: all });
+  changed();
+  return list.has(code);
 }
 export const gradedToday = async () => ((await getSettings()).grade_log || {})[todayStr()] || 0;
 
