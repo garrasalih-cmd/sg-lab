@@ -15,11 +15,11 @@ import * as focus from './focus.js';
 
 let last = null;   // آخر خطة محسوبة
 
-onShow('plan', () => render(true));
+onShow('plan', arg => render(true, arg));
 window.addEventListener('sek:tasks', () => { if (!$('[data-screen="plan"]').hidden) render(false); });
 window.addEventListener('sek:tasks-remote', () => { if (!$('[data-screen="plan"]').hidden) render(false); });
 
-async function render(fetchEvents) {
+async function render(fetchEvents, arg) {
   const day = todayStr();
   $('#p-date').textContent = longToday();
   const settings = await getSettings();
@@ -31,6 +31,8 @@ async function render(fetchEvents) {
     events = await eventsFor(day, { refresh: true });
     draw({ open, done, events, settings, day });
   }
+  // قادم من «مهام من صورة»: نثبّت الأوقات تلقائيًا حتى تصلك إشعارات التذكير
+  if (arg?.autoCommit && !$('#p-commit').disabled) $('#p-commit').click();
 }
 
 function draw({ open, done, events, settings, day }) {
@@ -38,7 +40,6 @@ function draw({ open, done, events, settings, day }) {
   last = { plan, day };
   const list = $('#p-list');
   $('#p-empty').hidden = open.length > 0;
-  $('#p-cal-note').hidden = gcal.connected;
   $('#p-done-count').textContent = done.length ? `✅ أنجزتَ ${done.length} من ${done.length + open.length}` : '';
 
   // ---- القائمة المرتّبة (قابلة للسحب) ----
@@ -103,7 +104,7 @@ $('#p-commit').onclick = async () => {
   for (const [id, sched_start] of changes) await store.update(id, { sched_start }, { silent: true });
   window.dispatchEvent(new Event('sek:tasks'));
   vibrate(20);
-  toast(gcal.connected ? '📅 أُرسلت الخطة إلى تقويم «سكرتيري»' : '📌 ثُبّتت الأوقات');
+  toast(gcal.connected ? '📅 أُرسلت الخطة إلى تقويم «سكرتير صالح»' : '📌 ثُبّتت الأوقات');
 };
 
 /* ---------- النقر: ✓ / ▶️ / تراجع ---------- */
@@ -195,4 +196,3 @@ export async function speakSummary() {
 }
 $('#p-speak').onclick = speakSummary;
 $('#p-morning').onclick = () => show('morning');
-$('#p-cal-note').onclick = () => show('settings');

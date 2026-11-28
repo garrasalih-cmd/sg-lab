@@ -50,7 +50,7 @@ function update() {
   ring.style.strokeDasharray = C;
   ring.style.strokeDashoffset = C * (r / total);
   ring.classList.toggle('break', S.mode === 'break');
-  document.title = `${$('#f-time').textContent} · سكرتيري`;
+  document.title = `${$('#f-time').textContent} · سكرتير صالح`;
   if (r === 0 && S.paused == null) phaseEnd();
 }
 
@@ -102,7 +102,7 @@ $('#f-stop').onclick = async () => {
 async function requestWake() {
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* غير مدعوم */ }
 }
-function releaseWake() { try { wakeLock?.release(); } catch { /* */ } wakeLock = null; document.title = 'سكرتيري'; }
+function releaseWake() { try { wakeLock?.release(); } catch { /* */ } wakeLock = null; document.title = 'سكرتير صالح'; }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !$('[data-screen="focus"]').hidden) requestWake();
 });

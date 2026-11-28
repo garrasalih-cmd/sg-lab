@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>سكرتيري</title>
+<title>سكرتير صالح</title>
 <meta name="description" content="سكرتيرك الشخصي لمهام العمل والبيت والعائلة">
 <meta name="theme-color" content="#0f1419">
 <meta name="color-scheme" content="dark">
@@ -23,7 +23,7 @@
 <header class="topbar">
   <div class="brand">
     <img src="icons/icon-192.png" alt="" width="40" height="40">
-    <div><h1>سكرتيري</h1><p id="today-label" class="muted"></p></div>
+    <div><h1>سكرتير صالح</h1><p id="today-label" class="muted"></p></div>
   </div>
   <button id="settings-btn" class="icon-btn" aria-label="الإعدادات والمزامنة">
     <span id="sync-dot" class="dot" data-status="local"></span><span aria-hidden="true">⚙️</span>
@@ -43,7 +43,10 @@
       <div class="input-row">
         <input id="task-input" type="text" placeholder="اكتب، أو اضغط 🎤 وتكلّم…" autocomplete="off" enterkeyhint="done" maxlength="500">
         <button id="mic-btn" class="mic" type="button" aria-label="إملاء صوتي">🎤</button>
+        <button id="photo-btn" class="mic" type="button" aria-label="مهام من صورة">📷</button>
       </div>
+      <!-- اختيار صورة: Android يعرض «الكاميرا» أو «المعرض» -->
+      <input id="photo-input" type="file" accept="image/*" hidden>
       <div class="label">الفئة</div>
       <div id="cats" class="cats" role="radiogroup" aria-label="الفئة"></div>
       <div class="label">الموعد <span class="muted">(اختياري)</span></div>
@@ -104,7 +107,6 @@
       <div><h2 class="screen-title">📋 خطة اليوم</h2><p id="p-date" class="muted small"></p></div>
       <button id="p-speak" class="icon-btn" aria-label="ملخص صوتي">🔊</button>
     </div>
-    <button id="p-cal-note" class="note" hidden>📅 اربط Google Calendar لأرى حصصك وأرتّب المهام في فراغاتك ←</button>
     <p id="p-done-count" class="muted"></p>
     <ul id="p-list" class="task-list plan-list"></ul>
     <div id="p-empty" class="empty" hidden>
@@ -168,6 +170,27 @@
     </div>
   </section>
 
+  <!-- ================= مهام من صورة 📷 ================= -->
+  <section data-screen="photo" hidden>
+    <div class="screen-head">
+      <button id="ph-close" class="icon-btn" aria-label="إغلاق">✕</button>
+      <h2 class="screen-title">📷 مهام من صورة</h2>
+    </div>
+    <img id="ph-preview" class="ph-preview" alt="الصورة المختارة">
+    <p id="ph-status" class="ph-status"></p>
+    <div class="progress thin"><div id="ph-bar"></div></div>
+    <ul id="ph-list" class="ph-list"></ul>
+    <div id="ph-actions" hidden>
+      <button id="ph-add-plan" class="btn-primary"></button>
+      <button id="ph-add-inbox" class="btn-ghost"></button>
+    </div>
+    <button id="ph-retry" class="btn-ghost">📷 صورة أخرى</button>
+    <details id="ph-raw-wrap" class="more" hidden>
+      <summary>النص الكامل الذي قرأتُه</summary>
+      <textarea id="ph-raw" rows="6" readonly></textarea>
+    </details>
+  </section>
+
   <!-- ================= تفاصيل المهمة ================= -->
   <section data-screen="details" hidden>
     <div class="screen-head">
@@ -204,7 +227,6 @@
       <h2 class="screen-title">⚙️ الإعدادات</h2>
     </div>
     <div class="card"><h3>☁️ الحساب والمزامنة</h3><div id="account"></div></div>
-    <div class="card"><h3>📅 Google Calendar</h3><div id="google"></div></div>
     <div class="card">
       <h3>🔔 الإشعارات</h3>
       <p id="push-state" class="muted small"></p>
@@ -212,7 +234,7 @@
       <div id="push-opts" hidden>
         <label class="switch-row"><span>☀️ إشعار الصباح</span><input type="time" id="morning-time"><input type="checkbox" id="push-morning"></label>
         <label class="switch-row"><span>🌙 ملخص المساء</span><input type="time" id="evening-time"><input type="checkbox" id="push-evening"></label>
-        <label class="switch-row"><span>⏰ تذكير قبل المهمة<small>إن لم يكن التقويم مربوطًا</small></span><input type="checkbox" id="push-rem"></label>
+        <label class="switch-row"><span>⏰ تذكير قبل المهمة<small>قبل موعدها بربع ساعة تقريبًا</small></span><input type="checkbox" id="push-rem"></label>
         <button id="push-test" class="btn-ghost">📨 جرّب إشعارًا</button>
       </div>
     </div>
@@ -231,10 +253,10 @@
     </div>
     <div class="card">
       <h3>📲 التطبيق</h3>
-      <button id="install-btn" class="btn-primary" hidden>ثبّت سكرتيري على الشاشة الرئيسية</button>
+      <button id="install-btn" class="btn-primary" hidden>ثبّت سكرتير صالح على الشاشة الرئيسية</button>
       <p id="install-note" class="muted small"></p>
       <button id="export-btn" class="btn-ghost">💾 حفظ نسخة احتياطية (ملف)</button>
-      <p class="muted small center">سكرتيري · الإصدار 2</p>
+      <p class="muted small center">سكرتير صالح · الإصدار 3</p>
     </div>
   </section>
 </main>

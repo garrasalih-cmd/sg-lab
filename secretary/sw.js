@@ -4,7 +4,7 @@
    • "Stale-While-Revalidate": يعرض النسخة المحفوظة فورًا ويجلب الجديدة في الخلفية
    • يستقبل إشعارات Push ويعرضها، ويفتح الشاشة المناسبة عند النقر
    ===================================================================== */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const SHELL = 'sek-shell-' + VERSION;
 const RUNTIME = 'sek-runtime';
 
@@ -12,7 +12,7 @@ const ASSETS = [
   './', './index.html', './css/style.css', './config.js', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/store.js', './js/sync.js', './js/voice.js', './js/util.js',
   './js/ui.js', './js/home.js', './js/morning.js', './js/planner.js', './js/plan.js',
-  './js/focus.js', './js/review.js', './js/settings.js', './js/calendar.js',
+  './js/focus.js', './js/review.js', './js/settings.js', './js/calendar.js', './js/ocr.js',
   './icons/icon-192.png', './icons/icon-512.png'
 ];
 
@@ -76,8 +76,9 @@ async function cacheFirst(req) {
 /* ---------- إشعارات Push (المرحلة 4) ---------- */
 self.addEventListener('push', e => {
   let data = {};
-  try { data = e.data.json(); } catch { data = { title: 'سكرتيري', body: e.data?.text() || '' }; }
-  e.waitUntil(self.registration.showNotification(data.title || 'سكرتيري', {
+  try { data = e.data.json(); } catch { data = { title: 'سكرتير صالح', body: e.data?.text() || '' }; }
+  if (data.tag === 'test') data.title = '🔔 سكرتير صالح';
+  e.waitUntil(self.registration.showNotification(data.title || 'سكرتير صالح', {
     body: data.body || '',
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',

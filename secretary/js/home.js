@@ -3,6 +3,7 @@
    ===================================================================== */
 import * as store from './store.js';
 import * as voice from './voice.js';
+import { startFromFile } from './ocr.js';
 import { $, show, onShow, toast, catButtons, selectCat, chips, pref, vibrate, openPicker, back } from './ui.js';
 import { CATS, IMPORTANCE, DURATIONS, RECUR, todayStr, addDays, fmtDue, isOverdue, guessCategory, esc } from './util.js';
 
@@ -50,6 +51,14 @@ export function setupHome() {
   paintDue();
   $('#add-btn').onclick = () => addTask(false);
   setupMic();
+  // 📷 مهام من صورة
+  const photoInput = $('#photo-input');
+  $('#photo-btn').onclick = () => photoInput.click();
+  photoInput.addEventListener('change', () => {
+    const f = photoInput.files?.[0];
+    photoInput.value = '';          // حتى نستطيع اختيار نفس الصورة مرة أخرى
+    if (f) startFromFile(f);
+  });
   $('#task-list').addEventListener('click', onListClick);
 }
 
@@ -210,7 +219,7 @@ function importanceHelp(t) {
   const bits = [];
   if (t.postpone_count) bits.push(`أُجّلت ${t.postpone_count} مرات`);
   if (t.focus_min) bits.push(`ركّزتَ عليها ${t.focus_min} دقيقة`);
-  if (t.gcal_event_id) bits.push('📅 موجودة في تقويم «سكرتيري»');
+  if (t.gcal_event_id) bits.push('📅 موجودة في تقويم «سكرتير صالح»');
   if (t.gtask_id) bits.push('📝 من Google Tasks (متزامنة)');
   return bits.join(' · ');
 }
